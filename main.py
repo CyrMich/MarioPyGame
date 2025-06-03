@@ -11,7 +11,7 @@ FPS = 60
 PLAYER_VEL = 5
 
 class Player(pygame.sprite.Sprite):
-    GRAVITY = 1
+    GRAVITY = 1 # DO USTALENIA
 
     def __init__(self,x,y,width,height):
         super().__init__()
@@ -40,14 +40,15 @@ class Player(pygame.sprite.Sprite):
         self.rect.x += dx
         self.rect.y += dy
 
+    # PĘTLA GRACZA
     def loop(self):
-        # self.y_vel += min(1,5)
+        # self.y_vel += min(1,5) # GRAWITACJA, DO ZMIANY JESZCZE
         self.move(self.x_vel,self.y_vel)
 
     def draw(self):
         pygame.draw.rect(WINDOW,"red",self.rect)
 
-
+# FUNKCJA OBSLUGUJACA RUCH GRACZA
 def handle_move(player):
     keys = pygame.key.get_pressed()
 
@@ -58,14 +59,12 @@ def handle_move(player):
     if keys[pygame.K_d]:
         player.move_right(PLAYER_VEL)
 
-
+# FUNKCJA RYSUJACA NA EKRANIE
 def draw(player):
     # WINDOW.blit(background,(0,0))
     WINDOW.fill("white")
     player.draw()
     pygame.display.update()
-
-
 
 
 def main():
