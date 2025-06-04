@@ -1,14 +1,21 @@
 import pygame
 
+# INICJALIZACJA CZCIONKI I PYGAME
 pygame.init()
 pygame.font.init()
 
+# WYMIARY OKNA
 WIDTH, HEIGHT = 800, 600
 WINDOW = pygame.display.set_mode((WIDTH,HEIGHT))
 pygame.display.set_caption("Mario")
 
+# TŁO
+BACKGROUND = pygame.transform.scale(pygame.image.load("resources\\graphics\\level_1.png"),(7000,600))
+
+FLOOR_LEVEL = 536
+
 FPS = 60
-PLAYER_VEL = 5
+PLAYER_VEL = 10 # DOCELOWO 5 DLA TESTOW JEST WIECEJ
 
 class Player(pygame.sprite.Sprite):
     GRAVITY = 1 # DO USTALENIA
@@ -23,7 +30,7 @@ class Player(pygame.sprite.Sprite):
 
     def do_jump(self):
         if not self.jump:
-            self.y_vel = -self.GRAVITY * 10
+            self.y_vel = -self.GRAVITY * 14
             self.jump = True
 
     def landed(self):
@@ -42,11 +49,36 @@ class Player(pygame.sprite.Sprite):
 
     # PĘTLA GRACZA
     def loop(self):
-        # self.y_vel += min(1,5) # GRAWITACJA, DO ZMIANY JESZCZE
+        self.y_vel += self.GRAVITY # GRAWITACJA, DO ZMIANY JESZCZE
         self.move(self.x_vel,self.y_vel)
 
     def draw(self):
         pygame.draw.rect(WINDOW,"red",self.rect)
+
+
+class Object(pygame.sprite.Sprite):
+    def __init__(self, x, y, width, height, color="green"):
+        super().__init__()
+        self.rect = pygame.Rect(x, y, width, height)
+        self.color = color
+
+    def draw(self,scroll_x): # TESTY PODLOGI
+        adjusted_rect = self.rect.copy()
+        adjusted_rect.x -= scroll_x
+        pygame.draw.rect(WINDOW, self.color, adjusted_rect)
+
+
+
+def handle_vertical_collision(player,objects):
+    player.rect.y += player.y_vel
+    for obj in objects:
+        if player.rect.colliderect(obj.rect):
+            if player.y_vel > 0:  # Spada
+                player.rect.bottom = obj.rect.top
+                player.landed()
+            elif player.y_vel < 0:  # Wznosi się
+                player.rect.top = obj.rect.bottom
+                player.y_vel = 0
 
 # FUNKCJA OBSLUGUJACA RUCH GRACZA
 def handle_move(player):
@@ -54,17 +86,34 @@ def handle_move(player):
 
     player.x_vel = 0
 
-    if keys[pygame.K_a]:
+    if keys[pygame.K_a] and player.rect.x > 0:
         player.move_left(PLAYER_VEL)
-    if keys[pygame.K_d]:
+    if keys[pygame.K_d] and player.rect.x + player.rect.width < 7000:
         player.move_right(PLAYER_VEL)
 
+
+
 # FUNKCJA RYSUJACA NA EKRANIE
-def draw(player):
-    # WINDOW.blit(background,(0,0))
-    WINDOW.fill("white")
-    player.draw()
+def draw(player,objects,scroll_x):
+    scroll_x = player.rect.x - WIDTH // 2
+    scroll_x = max(0, min(scroll_x, BACKGROUND.get_width() - WIDTH))  # ograniczenie w poziomie
+
+
+    WINDOW.blit(BACKGROUND,(-scroll_x,0))
+
+    for obj in objects:
+        obj.draw(scroll_x)
+
+    adjusted_rect = player.rect.copy()
+    adjusted_rect.x -= scroll_x
+    pygame.draw.rect(WINDOW, "red", adjusted_rect)
+
+    # player.draw()
     pygame.display.update()
+
+
+def load_sprite_sheets(dir):
+    ...
 
 
 def main():
@@ -72,6 +121,14 @@ def main():
     clock = pygame.time.Clock()
 
     player = Player(400,300,50,50)
+    floor1 = Object(0,FLOOR_LEVEL,2279,5)
+    floor2 = Object(2345,FLOOR_LEVEL,495,5)
+    floor3 = Object(2939,FLOOR_LEVEL,2113,5)
+    floor4 = Object(5118,FLOOR_LEVEL,1900,5)
+
+    scroll_x = player.rect.x - WIDTH // 2
+
+    objects = [floor1,floor2,floor3,floor4]
 
     # GŁÓWNA PĘTLA GRY
     while run:
@@ -90,7 +147,8 @@ def main():
 
         player.loop()
         handle_move(player)
-        draw(player)
+        handle_vertical_collision(player, objects)
+        draw(player, objects, scroll_x)
 
 
     pygame.quit()
