@@ -52,8 +52,10 @@ class Player(pygame.sprite.Sprite):
         self.y_vel += self.GRAVITY # GRAWITACJA, DO ZMIANY JESZCZE
         self.move(self.x_vel,self.y_vel)
 
-    def draw(self):
-        pygame.draw.rect(WINDOW,"red",self.rect)
+    def draw(self,scroll_x):
+        adjusted_rect = self.rect.copy()
+        adjusted_rect.x -= scroll_x
+        pygame.draw.rect(WINDOW, "red", adjusted_rect)
 
 
 class Object(pygame.sprite.Sprite):
@@ -96,7 +98,7 @@ def handle_move(player):
 # FUNKCJA RYSUJACA NA EKRANIE
 def draw(player,objects,scroll_x):
     scroll_x = player.rect.x - WIDTH // 2
-    scroll_x = max(0, min(scroll_x, BACKGROUND.get_width() - WIDTH))  # ograniczenie w poziomie
+    scroll_x = max(0, min(scroll_x, BACKGROUND.get_width() - WIDTH))  # OGRANICZENIA W POZIOMIE
 
 
     WINDOW.blit(BACKGROUND,(-scroll_x,0))
@@ -104,11 +106,8 @@ def draw(player,objects,scroll_x):
     for obj in objects:
         obj.draw(scroll_x)
 
-    adjusted_rect = player.rect.copy()
-    adjusted_rect.x -= scroll_x
-    pygame.draw.rect(WINDOW, "red", adjusted_rect)
+    player.draw(scroll_x)
 
-    # player.draw()
     pygame.display.update()
 
 
@@ -121,14 +120,15 @@ def main():
     clock = pygame.time.Clock()
 
     player = Player(400,300,50,50)
+
     floor1 = Object(0,FLOOR_LEVEL,2279,5)
     floor2 = Object(2345,FLOOR_LEVEL,495,5)
     floor3 = Object(2939,FLOOR_LEVEL,2113,5)
     floor4 = Object(5118,FLOOR_LEVEL,1900,5)
 
-    scroll_x = player.rect.x - WIDTH // 2
+    objects = [floor1, floor2, floor3, floor4]
 
-    objects = [floor1,floor2,floor3,floor4]
+    scroll_x = player.rect.x - WIDTH // 2
 
     # GŁÓWNA PĘTLA GRY
     while run:
