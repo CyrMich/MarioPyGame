@@ -142,7 +142,7 @@ def main():
 
             # ODPOWIADA ZA SKAKANIE
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_w and not player.jump:
+                if (event.key == pygame.K_w or event.key == pygame.K_SPACE) and not player.jump:
                     player.do_jump()
 
         player.loop()
