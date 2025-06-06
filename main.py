@@ -3,6 +3,10 @@ import pygame
 # INICJALIZACJA CZCIONKI I PYGAME
 pygame.init()
 pygame.font.init()
+pygame.mixer.init()
+
+FONT = pygame.font.SysFont("Arial",30)
+
 
 # WYMIARY OKNA
 WIDTH, HEIGHT = 800, 600
@@ -11,6 +15,11 @@ pygame.display.set_caption("Mario")
 
 # TŁO
 BACKGROUND = pygame.transform.scale(pygame.image.load("resources\\graphics\\level_1.png"),(7000,600))
+
+# MUZYKA
+# pygame.mixer.music.load("resources\\music\\main_theme.ogg")
+# pygame.mixer.music.play(-1)
+# pygame.mixer.music.set_volume(0.5)
 
 
 FLOOR_LEVEL = 536
@@ -32,8 +41,20 @@ class Player(pygame.sprite.Sprite):
 
     def do_jump(self):
         if not self.jump:
-            self.y_vel = -self.GRAVITY * 14
+            self.y_vel = -self.GRAVITY * 16
             self.jump = True
+
+    def check_if_airborne(self, objects):
+        # Tworzymy prostokąt o 1 piksel niżej od gracza
+        rect_below = self.rect.move(0, 1)
+
+        # Sprawdzamy, czy coś jest bezpośrednio pod graczem
+        for obj in objects:
+            if rect_below.colliderect(obj.rect):
+                self.jump = False  # Gracz na ziemi
+                return
+
+        self.jump = True  # Gracz w powietrzu
 
     def landed(self):
         self.y_vel = 0
@@ -50,47 +71,92 @@ class Player(pygame.sprite.Sprite):
         self.rect.y += dy
 
     # PĘTLA GRACZA
-    def loop(self):
-        self.y_vel += self.GRAVITY  # GRAWITACJA, DO ZMIANY JESZCZE
-        self.move(self.x_vel, self.y_vel)
+    def loop(self,objects):
+        self.check_if_airborne(objects)
+
+        if self.rect.y > HEIGHT + 50:
+            self.reset()
+
+        self.y_vel += self.GRAVITY  # GRAWITACJA
+        self.rect.y += self.y_vel
+
+    def reset(self):
+        self.rect.x = 400
+        self.rect.y = 300
+        self.y_vel = 0
+        self.jump = False
 
     def draw(self, scroll_x):
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
         pygame.draw.rect(WINDOW, "red", adjusted_rect)
 
+
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, x, y, walk_range, width, height, speed, life):
+    GRAVITY = 1
+
+    def __init__(self, x, y, width, height, speed=2):
         super().__init__()
-        self.rect = pygame.Rect(x, y - height, width, height)
-        self.life = life
-        self.walk_range = walk_range
+        self.rect = pygame.Rect(x, y, width, height)
         self.speed = speed
-        self.x_pos = x  
-        self.side = True  
+        self.y_vel = 0
+        self.alive = True
 
-    def move(self):
-        if self.side:
-            if self.rect.x < self.x_pos + self.walk_range:
-                self.rect.x += self.speed
-            else:
-                self.side = False
-        else:
-            if self.rect.x > self.x_pos - self.walk_range:
-                self.rect.x -= self.speed
-            else:
-                self.side = True
+    def apply_gravity(self):
+        self.y_vel += self.GRAVITY
+        if self.y_vel > 10:
+            self.y_vel = 10  # terminal velocity
 
-    def loop(self):
-        self.move()
+    def move_and_collide(self, objects):
+        # RUCH W POZIOMIE
+        self.rect.x += self.speed
+        for obj in objects:
+            if self.rect.colliderect(obj.rect):
+                if self.speed > 0:
+                    self.rect.right = obj.rect.left
+                else:
+                    self.rect.left = obj.rect.right
+                self.speed *= -1  # ZMIANA KIERUNKU
+
+        # RUCH W PIONIE
+        self.rect.y += self.y_vel
+        for obj in objects:
+            if self.rect.colliderect(obj.rect):
+                if self.y_vel > 0:
+                    self.rect.bottom = obj.rect.top
+                    self.y_vel = 0
+                elif self.y_vel < 0:
+                    self.rect.top = obj.rect.bottom
+                    self.y_vel = 0
+
+    def update(self, player, objects):
+        if not self.alive:
+            return
+
+        self.apply_gravity()
+        self.move_and_collide(objects)
+
+        # KOLIZJA Z GRACZEM
+        if self.rect.colliderect(player.rect):
+            if player.rect.bottom <= self.rect.top+20:
+                self.alive = False
+                player.y_vel = -15
+                player.jump = True
+            else:
+                player.reset()
 
     def draw(self, scroll_x):
-        adjusted_rect = self.rect.copy()
-        adjusted_rect.x -= scroll_x
-        pygame.draw.rect(WINDOW, "orange", adjusted_rect)
+        if self.alive:
+            adjusted = self.rect.copy()
+            adjusted.x -= scroll_x
+            pygame.draw.rect(WINDOW, "green", adjusted)
+
+    def is_off_screen(self, scroll_x):
+        return self.rect.right - scroll_x < 0
+
 
 class Object(pygame.sprite.Sprite):
-    def __init__(self, x, y, width, height, color="green", visible=True):
+    def __init__(self, x, y, width, height, color="green", visible=False):
         super().__init__()
         self.rect = pygame.Rect(x, y - height, width, height)
         self.color = color
@@ -147,6 +213,10 @@ def draw(player, objects, enemies):
 
     player.draw(scroll_x)
 
+    # X,Y GRACZA DO TESTOW
+    text = FONT.render(f"{player.rect.x, player.rect.y}",True,"white")
+    WINDOW.blit(text,(10,10))
+
     pygame.display.update()
 
 def load_sprite_sheets(dir):
@@ -158,14 +228,14 @@ def main():
 
     player = Player(400, FLOOR_LEVEL, 50, 50)
     enemies = [
-        Enemy(800, FLOOR_LEVEL, 100, 50, 50, 5, 1),
-        Enemy(1500, FLOOR_LEVEL, 150, 40, 50, 1, 1)
+        Enemy(1000,450,45,45),
+        Enemy(1750,450,45,45)
     ]
 
-    floor1 = Object(0, FLOOR_LEVEL, 2279, 5)
-    floor2 = Object(2345, FLOOR_LEVEL, 495, 5)
-    floor3 = Object(2939, FLOOR_LEVEL, 2113, 5)
-    floor4 = Object(5118, FLOOR_LEVEL, 1900, 5)
+    floor1 = Object(0, FLOOR_LEVEL+5, 2279, 5)
+    floor2 = Object(2345, FLOOR_LEVEL+5, 495, 5)
+    floor3 = Object(2939, FLOOR_LEVEL+5, 2113, 5)
+    floor4 = Object(5118, FLOOR_LEVEL+5, 1900, 5)
 
     pipe1 = Object(926, FLOOR_LEVEL, 64, 86, "green",False) 
     pipe2 = Object(1256, FLOOR_LEVEL, 64, 128, "green",False) 
@@ -224,24 +294,23 @@ def main():
                 if (event.key == pygame.K_w or event.key == pygame.K_SPACE) and not player.jump:
                     player.do_jump()
 
-        handle_move(player)  
-        
+        handle_move(player)
+
         player.rect.x += player.x_vel
         handle_horizontal_collision(player, objects)
-        
-        player.y_vel += player.GRAVITY  # grawitacja
-        player.rect.y += player.y_vel
+
+        player.loop(objects)
+
         handle_vertical_collision(player, objects)
 
-        # Sprawdza czy gracz nie spadł za daleko
-        if player.rect.y > HEIGHT:
-            player.rect.x = 400
-            player.rect.y = 300
-            player.y_vel = 0
-            player.jump = False
 
-        for enemy in enemies:
-            enemy.loop()
+        scroll_x = max(0, min(player.rect.x - WIDTH // 2, BACKGROUND.get_width() - WIDTH))
+
+        for enemy in enemies[:]:
+            enemy.update(player, objects)
+            enemy.draw(scroll_x)
+            if enemy.rect.x + WIDTH < player.rect.x or enemy.rect.y - HEIGHT > player.rect.y:
+                enemies.remove(enemy)
 
         draw(player, objects, enemies)
 
