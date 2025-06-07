@@ -27,17 +27,22 @@ FLOOR_LEVEL = 536
 FPS = 60
 PLAYER_VEL = 10  # DOCELOWO 5 DLA TESTOW JEST WIECEJ
 GAME_ACTIVE = True
+GAME_PAUSED = False
+GAME_FINISHED = False
+TIME=100
 
 class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5  # DO USTALENIA
 
-    def __init__(self, x, y, width, height):
+    def __init__(self, x, y, width, height,lives):
         super().__init__()
         self.rect = pygame.Rect(x, y-height, width, height)
         self.x_vel = 0
         self.y_vel = 0
         self.direction = "left"
         self.jump = False
+        self.lives=lives
+        self.score=0  # Zmienione z 1 na 0 dla lepszej logiki
 
     def do_jump(self):
         if not self.jump:
@@ -75,7 +80,15 @@ class Player(pygame.sprite.Sprite):
         self.check_if_airborne(objects)
 
         if self.rect.y > HEIGHT + 50:
-            self.reset()
+            self.lives -= 1
+            if self.lives <= 0:
+                self.reset()
+                self.lives = 3  # Reset liczby żyć po śmierci
+            else:
+                self.rect.x = 400
+                self.rect.y = 300
+                self.y_vel = 0
+                self.jump = False
 
         self.y_vel += self.GRAVITY  # GRAWITACJA
         self.rect.y += self.y_vel
@@ -85,6 +98,8 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = 300
         self.y_vel = 0
         self.jump = False
+        self.lives = 3 
+        self.score = 0  # Reset wyniku
 
     def draw(self, scroll_x):
         adjusted_rect = self.rect.copy()
@@ -143,7 +158,13 @@ class Enemy(pygame.sprite.Sprite):
                 player.y_vel = -15
                 player.jump = True
             else:
-                player.reset()
+                player.lives -= 1
+                if player.lives <= 0:
+                    player.reset()
+                    player.lives = 3  # Reset żyć po śmierci
+                else:
+                    player.rect.x -= 50  # Cofa gracza
+                    player.y_vel = -10   # Daje odrzut po uderzeniu
 
     def draw(self, scroll_x):
         if self.alive:
@@ -154,6 +175,128 @@ class Enemy(pygame.sprite.Sprite):
     def is_off_screen(self, scroll_x):
         return self.rect.right - scroll_x < 0
 
+
+class Goomba(Enemy):
+    def __init__(self, x, y, width=45, height=45, speed=2, walking_range=200):
+        super().__init__(x, y-height, width, height, speed)
+        self.original_speed = abs(speed)
+        self.walking_range = walking_range
+        self.start_x = x
+        self.left_boundary = x - walking_range // 2
+        self.right_boundary = x + walking_range // 2
+    
+    def move_and_collide(self, objects):
+        next_x = self.rect.x + self.speed
+        
+        if next_x <= self.left_boundary:
+            self.rect.x = self.left_boundary
+            self.speed = abs(self.speed)  
+        elif next_x + self.rect.width >= self.right_boundary:
+            self.rect.x = self.right_boundary - self.rect.width
+            self.speed = -abs(self.speed)  
+        else:
+            self.rect.x = next_x
+
+        for obj in objects:
+            if self.rect.colliderect(obj.rect):
+                if self.speed > 0:
+                    self.rect.right = obj.rect.left
+                else:
+                    self.rect.left = obj.rect.right
+                self.speed *= -1  
+     
+    
+    def update(self, player, objects):
+        if not self.alive:
+            return
+
+        self.apply_gravity()
+        self.move_and_collide(objects)
+
+        # KOLIZJA Z GRACZEM
+        if self.rect.colliderect(player.rect):
+            if player.rect.bottom <= self.rect.top + 20:
+                self.alive = False
+                player.score+=2
+                player.y_vel = -15
+                player.jump = True
+            else:
+                player.lives -= 1
+                if player.lives <= 0:
+                    player.reset()
+                    player.lives = 3
+                else:
+                    player.rect.x -= 50
+                    player.y_vel = -10
+
+    def draw(self, scroll_x):
+        if self.alive:
+            adjusted = self.rect.copy()
+            adjusted.x -= scroll_x
+            pygame.draw.rect(WINDOW, "brown", adjusted)  
+
+
+class Boo(Enemy):
+    def __init__(self, x, y, width=45, height=45, speed=2, patrol_width=200, patrol_height=100):
+        super().__init__(x, y, width, height, speed)
+        self.start_x = x
+        self.start_y = y
+        self.patrol_width = patrol_width
+        self.patrol_height = patrol_height
+        self.current_side = 0  
+        self.original_speed = abs(speed)
+    
+        self.corners = [
+            (self.start_x + self.patrol_width, self.start_y), 
+            (self.start_x + self.patrol_width, self.start_y + self.patrol_height),  
+            (self.start_x, self.start_y + self.patrol_height),  
+            (self.start_x, self.start_y)  
+        ]
+        
+    def update(self, player):
+        if not self.alive:
+            return
+
+        self.fly_in_rectangle()
+
+        if self.rect.colliderect(player.rect):
+            if player.rect.bottom <= self.rect.top + 20:
+                self.alive = False
+                player.score+=3
+                player.y_vel = -15
+                player.jump = True
+            else:
+                player.lives -= 1
+                if player.lives <= 0:
+                    player.reset()
+                    player.lives = 3
+                else:
+                    player.rect.x -= 50
+                    player.y_vel = -10
+
+    def fly_in_rectangle(self):
+        target_corner = self.corners[self.current_side]
+        
+        dx = target_corner[0] - self.rect.centerx
+        dy = target_corner[1] - self.rect.centery
+        
+        if abs(dx) < self.original_speed + 2 and abs(dy) < self.original_speed + 2:
+            self.current_side = (self.current_side + 1) % 4
+            self.rect.centerx = target_corner[0]
+            self.rect.centery = target_corner[1]
+        else:
+            distance = max(abs(dx), abs(dy))
+            if distance > 0:
+                move_x = (dx / distance) * self.original_speed
+                move_y = (dy / distance) * self.original_speed
+                self.rect.x += int(move_x)
+                self.rect.y += int(move_y)
+
+    def draw(self, scroll_x):
+        if self.alive:
+            adjusted = self.rect.copy()
+            adjusted.x -= scroll_x
+            pygame.draw.rect(WINDOW, "white", adjusted) 
 
 class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, color="green", visible=False):
@@ -198,8 +341,64 @@ def handle_move(player):
     if keys[pygame.K_d] and player.rect.x + player.rect.width < 7000:
         player.move_right(PLAYER_VEL)
 
+# FUNKCJA RYSUJACA EKRAN PAUZY
+def draw_pause_screen():
+    overlay = pygame.Surface((WIDTH, HEIGHT))
+    overlay.set_alpha(128)
+    overlay.fill((0, 0, 0))
+    WINDOW.blit(overlay, (0, 0))
+    
+    pause_text = FONT.render("PAUZA", True, "white")
+    pause_rect = pause_text.get_rect(center=(WIDTH//2, HEIGHT//2 - 50))
+    WINDOW.blit(pause_text, pause_rect)
+    
+    instruction1 = FONT.render("ESC - Wznów grę", True, "white")
+    instruction1_rect = instruction1.get_rect(center=(WIDTH//2, HEIGHT//2 + 20))
+    WINDOW.blit(instruction1, instruction1_rect)
+    
+    instruction2 = FONT.render("R - Restart gry", True, "white")
+    instruction2_rect = instruction2.get_rect(center=(WIDTH//2, HEIGHT//2 + 50))
+    WINDOW.blit(instruction2, instruction2_rect)
+
+# FUNKCJA RYSUJACA EKRAN KOŃCOWY
+def draw_end_screen(player, start_time):
+    overlay = pygame.Surface((WIDTH, HEIGHT))
+    overlay.set_alpha(200)
+    overlay.fill((0, 0, 0))
+    WINDOW.blit(overlay, (0, 0))
+    
+    # Obliczanie wyniku końcowego
+    current_time = pygame.time.get_ticks()
+    time_bonus = 100 - int(start_time/1000)  # Bonus za czas
+    final_score = player.score * 10 + player.lives * 50 + time_bonus
+    
+    # Wyświetlanie wyniku
+    congrats_text = FONT.render("GRATULACJE!", True, "yellow")
+    congrats_rect = congrats_text.get_rect(center=(WIDTH//2, HEIGHT//2 - 100))
+    WINDOW.blit(congrats_text, congrats_rect)
+    
+    score_text = FONT.render(f"Punkty za przeciwników: {player.score * 10}", True, "white")
+    score_rect = score_text.get_rect(center=(WIDTH//2, HEIGHT//2 - 50))
+    WINDOW.blit(score_text, score_rect)
+    
+    lives_text = FONT.render(f"Bonus za życia: {player.lives * 50}", True, "white")
+    lives_rect = lives_text.get_rect(center=(WIDTH//2, HEIGHT//2 - 20))
+    WINDOW.blit(lives_text, lives_rect)
+    
+    time_text = FONT.render(f"Bonus za czas: {time_bonus}", True, "white")
+    time_rect = time_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 10))
+    WINDOW.blit(time_text, time_rect)
+    
+    final_text = FONT.render(f"KOŃCOWY WYNIK: {final_score}", True, "gold")
+    final_rect = final_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 50))
+    WINDOW.blit(final_text, final_rect)
+    
+    instruction = FONT.render("R - Restart gry", True, "white")
+    instruction_rect = instruction.get_rect(center=(WIDTH//2, HEIGHT//2 + 100))
+    WINDOW.blit(instruction, instruction_rect)
+
 # FUNKCJA RYSUJACA NA EKRANIE
-def draw(player, objects, enemies):
+def draw(player, objects, enemies, paused=False, finished=False, start_time=0):
     scroll_x = player.rect.x - WIDTH // 2
     scroll_x = max(0, min(scroll_x, BACKGROUND.get_width() - WIDTH))
 
@@ -213,24 +412,52 @@ def draw(player, objects, enemies):
 
     player.draw(scroll_x)
 
-    # X,Y GRACZA DO TESTOW
+    # X,Y GRACZA I ŻYCIA DO TESTOW
     text = FONT.render(f"{player.rect.x, player.rect.y}",True,"white")
     WINDOW.blit(text,(10,10))
+
+    # Życia
+    live_img=pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioLive.png")
+    lives=[]
+    for i in range(player.lives):
+        lives.append(live_img.get_rect(center=(750-i*50,50)))
+    for i in range(player.lives):
+        WINDOW.blit(live_img,lives[i])
+    lives_text = FONT.render(f"Życia:",True,"white")
+    text_x = lives[-1].x - 80  
+    text_y = lives[-1].centery - lives_text.get_height() // 2 
+    WINDOW.blit(lives_text, (text_x, text_y))
+    
+    # Rysuj odpowiedni ekran
+    if finished:
+        draw_end_screen(player, start_time)
+    elif paused:
+        draw_pause_screen()
 
     pygame.display.update()
 
 def load_sprite_sheets(dir):
-    pass  
+    pass
+
+def restart_game():
+    # Funkcja resetująca grę do stanu początkowego
+    player = Player(400, FLOOR_LEVEL, 50, 50, 3)
+    enemies = [
+        Goomba(1000, FLOOR_LEVEL, 45, 45, 3, 450),  
+        Goomba(1750, FLOOR_LEVEL, 45, 45, 3, 400),  
+        Boo(2500, 350, 45, 45, 3, 200, 120),  
+        Boo(3200, 350, 45, 45, 3, 200, 120),  
+        Goomba(4000, FLOOR_LEVEL, 45, 45, 3, 400),  
+    ]
+    return player, enemies
 
 def main():
+    global GAME_PAUSED, GAME_FINISHED
     run = True
     clock = pygame.time.Clock()
+    start_time = pygame.time.get_ticks()
 
-    player = Player(400, FLOOR_LEVEL, 50, 50)
-    enemies = [
-        Enemy(1000,450,45,45),
-        Enemy(1750,450,45,45)
-    ]
+    player, enemies = restart_game()
 
     floor1 = Object(0, FLOOR_LEVEL+5, 2279, 5)
     floor2 = Object(2345, FLOOR_LEVEL+5, 495, 5)
@@ -275,11 +502,11 @@ def main():
     stairs25 = Object(6208, FLOOR_LEVEL, 33, 344, "brown",False)
     stairs26 = Object(6241, FLOOR_LEVEL, 33, 344, "brown",False)
 
-    
     stairs27 = Object(6538, FLOOR_LEVEL, 33, 43, "brown",False)
-    
-    objects = [floor1, floor2, floor3, floor4,  pipe1,  pipe2,pipe3,pipe4,pipe5,pipe6,stairs1,stairs2,stairs3,stairs4,stairs5,stairs6,stairs7,stairs8,stairs9,stairs10,stairs11,stairs12,stairs13,stairs14,stairs15,stairs16,stairs17,stairs18,stairs19,stairs20,stairs21,stairs22,stairs23,stairs24,stairs25,stairs26,stairs27] 
 
+    winning_gate=Object(6715,FLOOR_LEVEL,20,70,"brown",True)
+    
+    objects = [floor1, floor2, floor3, floor4,  pipe1,  pipe2,pipe3,pipe4,pipe5,pipe6,stairs1,stairs2,stairs3,stairs4,stairs5,stairs6,stairs7,stairs8,stairs9,stairs10,stairs11,stairs12,stairs13,stairs14,stairs15,stairs16,stairs17,stairs18,stairs19,stairs20,stairs21,stairs22,stairs23,stairs24,stairs25,stairs26,stairs27,winning_gate] 
 
     # GŁÓWNA PĘTLA GRY
     while run:
@@ -289,30 +516,46 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
                 break
-
+                
+            # Sprawdzenie czy gracz dotarł do strefy końcowej
+            if player.rect.x > 6680 and player.rect.x < 6770 and not GAME_FINISHED:
+                GAME_FINISHED = True
+                
             if event.type == pygame.KEYDOWN:
-                if (event.key == pygame.K_w or event.key == pygame.K_SPACE) and not player.jump:
+                # Obsługa pauzy (tylko gdy gra nie jest skończona)
+                if event.key == pygame.K_ESCAPE and not GAME_FINISHED:
+                    GAME_PAUSED = not GAME_PAUSED
+                
+                # Restart 
+                if event.key == pygame.K_r and (GAME_PAUSED or GAME_FINISHED):
+                    player, enemies = restart_game()
+                    GAME_PAUSED = False
+                    GAME_FINISHED = False
+                    start_time = pygame.time.get_ticks()  # Reset czasu
+                
+                if (event.key == pygame.K_w or event.key == pygame.K_SPACE) and not player.jump and not GAME_PAUSED and not GAME_FINISHED:
                     player.do_jump()
 
-        handle_move(player)
+        # Aktualizuj grę tylko gdy nie jest zatrzymana ani skończona
+        if not GAME_PAUSED and not GAME_FINISHED:
+            handle_move(player)
 
-        player.rect.x += player.x_vel
-        handle_horizontal_collision(player, objects)
+            player.rect.x += player.x_vel
+            handle_horizontal_collision(player, objects)
 
-        player.loop(objects)
+            player.loop(objects)
 
-        handle_vertical_collision(player, objects)
+            handle_vertical_collision(player, objects)
 
+            scroll_x = max(0, min(player.rect.x - WIDTH // 2, BACKGROUND.get_width() - WIDTH))
 
-        scroll_x = max(0, min(player.rect.x - WIDTH // 2, BACKGROUND.get_width() - WIDTH))
-
-        for enemy in enemies[:]:
-            enemy.update(player, objects)
-            enemy.draw(scroll_x)
-            if enemy.rect.x + WIDTH < player.rect.x or enemy.rect.y - HEIGHT > player.rect.y:
-                enemies.remove(enemy)
-
-        draw(player, objects, enemies)
+            for enemy in enemies[:]:
+                enemy.update(player, objects)
+                enemy.draw(scroll_x)
+                if enemy.rect.x + WIDTH < player.rect.x or enemy.rect.y - HEIGHT > player.rect.y:
+                    enemies.remove(enemy)
+            
+        draw(player, objects, enemies, GAME_PAUSED, GAME_FINISHED, start_time)
 
     pygame.quit()
     quit()
