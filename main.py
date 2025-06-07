@@ -1,4 +1,5 @@
 import pygame
+import math
 
 # INICJALIZACJA CZCIONKI I PYGAME
 pygame.init()
@@ -24,7 +25,8 @@ pygame.mixer.music.set_volume(0.5)
 JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
 JUMP_SOUND.set_volume(0.5)
 
-SPRITE_SHEET = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
+SPRITE_SHEET_MARIO = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
+SPRITE_SHEET_ENEMIES = pygame.image.load("resources\\graphics\\smb_enemies_sheet.png").convert_alpha()
 
 FLOOR_LEVEL = 536
 
@@ -59,9 +61,9 @@ DIFFICULTY_SETTINGS = {
 
 CURRENT_DIFFICULTY = "ŚREDNI"
 
-def get_image_from_sheet(x, y, width, height, scale=1):
+def get_image_from_sheet(sprite_sheet, x, y, width, height, scale=1):
     image = pygame.Surface((width, height), pygame.SRCALPHA)
-    image.blit(SPRITE_SHEET, (0, 0), pygame.Rect(x, y, width, height))
+    image.blit(sprite_sheet, (0, 0), pygame.Rect(x, y, width, height))
     if scale != 1:
         image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
     return image
@@ -70,19 +72,19 @@ class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5  # DO USTALENIA
 
     SMALL_SPRITES = [
-        get_image_from_sheet(178, 32, 12, 16, 2),  # MARIO STOI W MIEJSCU
-        get_image_from_sheet(80,  32, 15, 16, 2),  # MARIO CHÓD [1]
-        get_image_from_sheet(96,  32, 16, 16, 2),  # MARIO CHÓD [2]
-        get_image_from_sheet(112, 32, 16, 16, 2),  # MARIO CHÓD [3]
-        get_image_from_sheet(144, 32, 16, 16, 2)  # MARIO PODSKOK
+        get_image_from_sheet(SPRITE_SHEET_MARIO,178, 32, 12, 16, 2),  # MARIO STOI W MIEJSCU
+        get_image_from_sheet(SPRITE_SHEET_MARIO,80,  32, 15, 16, 2),  # MARIO CHÓD [1]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,96,  32, 16, 16, 2),  # MARIO CHÓD [2]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,112, 32, 16, 16, 2),  # MARIO CHÓD [3]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,144, 32, 16, 16, 2)  # MARIO PODSKOK
     ]
 
     BIG_SPRITES = [
-        get_image_from_sheet(176,0,16,32,2), # MARIO STOI W MIEJSCU
-        get_image_from_sheet(81, 0,16,32,2), # MARIO CHÓD [1]
-        get_image_from_sheet(97, 0,15,32,2), # MARIO CHÓD [2]
-        get_image_from_sheet(113,0,15,32,2), # MARIO CHÓD [3]
-        get_image_from_sheet(144,0,16,32,2) # MARIO PODSKOK
+        get_image_from_sheet(SPRITE_SHEET_MARIO,176,0,16,32,2), # MARIO STOI W MIEJSCU
+        get_image_from_sheet(SPRITE_SHEET_MARIO,81, 0,16,32,2), # MARIO CHÓD [1]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,97, 0,15,32,2), # MARIO CHÓD [2]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,113,0,15,32,2), # MARIO CHÓD [3]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,144,0,16,32,2) # MARIO PODSKOK
     ]
 
 
@@ -158,25 +160,23 @@ class Player(pygame.sprite.Sprite):
         self.score = 0
 
     def update_sprite(self):
-        # Animacja skoku
+        # ANIMACJA SKOKU
         if self.y_vel != 0:
-            self.sprite_index = 4  # skacze
+            self.sprite_index = 4
 
-        # Animacja biegu
+        # ANIMACJA BIEGU
         elif self.x_vel != 0:
             self.animation_counter += 1
-            if self.animation_counter >= 6:  # zmiana co 10 klatek
+            if self.animation_counter >= 6:
                 self.animation_counter = 0
                 self.sprite_index += 1
                 if self.sprite_index > 3:
-                    self.sprite_index = 1  # pętla 1-3 (bieganie)
+                    self.sprite_index = 1
 
-        # Postać stoi
         else:
             self.sprite_index = 0
             self.animation_counter = 0
 
-        # Ustaw sprite zgodnie z kierunkiem
         if self.direction == "right":
             self.sprite = self.sprites[self.sprite_index]
         elif self.direction == "left":
@@ -260,17 +260,30 @@ class Enemy(pygame.sprite.Sprite):
 
 
 class Goomba(Enemy):
-    def __init__(self, x, y, width=45, height=45, speed=2, walking_range=200):
-        super().__init__(x, y-height, width, height, speed)
-        self.original_speed = abs(self.speed)  # Użyj prędkości z trudnością
+    SPRITES = [
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 0, 4, 16, 16, 2),   # CHÓD [1]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 30, 4, 16, 16, 2),  # CHÓD [2]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 61, 4, 16, 16, 2)   # UMIERA
+    ]
+
+    def __init__(self, x, y, width=32, height=32, speed=2, walking_range=200):
+        super().__init__(x, y - height, width, height, speed)
+        self.original_speed = abs(self.speed)
         self.walking_range = walking_range
         self.start_x = x
         self.left_boundary = x - walking_range // 2
         self.right_boundary = x + walking_range // 2
-    
+        self.animation_count = 0
+        self.sprite_index = 0
+        self.sprite = self.SPRITES[0]
+        self.alive = True
+        self.to_remove = False  # do oznaczenia, że trzeba usunąć z listy
+        self.death_timer = 0
+        self.death_duration = 30  # liczba klatek po śmierci zanim zniknie
+
     def move_and_collide(self, objects):
         next_x = self.rect.x + self.speed
-        
+
         if next_x <= self.left_boundary:
             self.rect.x = self.left_boundary
             self.speed = abs(self.speed)
@@ -287,16 +300,30 @@ class Goomba(Enemy):
                 else:
                     self.rect.left = obj.rect.right
                 self.speed *= -1
-    
+
     def update(self, player, objects):
         if not self.alive:
+            self.sprite = self.SPRITES[2]
+            self.death_timer += 1
+            if self.death_timer >= self.death_duration:
+                self.to_remove = True  # oznacz do usunięcia
             return
+
+        self.animation_count += 1
+        if self.animation_count >= 20:
+            self.animation_count = 0
+            self.sprite_index = 1 if self.sprite_index == 0 else 0
+        self.sprite = self.SPRITES[self.sprite_index]
+
+        # Zaktualizuj rect po zmianie sprite'a
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x,self.rect.y))
 
         self.apply_gravity()
         self.move_and_collide(objects)
 
+        # Kolizja z graczem
         if self.rect.colliderect(player.rect):
-            if player.rect.bottom <= self.rect.top + 20:
+            if player.rect.bottom <= self.rect.top + 20 and player.y_vel > 0:
                 self.alive = False
                 player.score += 2
                 player.y_vel = -15
@@ -311,37 +338,61 @@ class Goomba(Enemy):
                     player.y_vel = -10
 
     def draw(self, scroll_x):
-        if self.alive:
-            adjusted = self.rect.copy()
-            adjusted.x -= scroll_x
-            pygame.draw.rect(WINDOW, "brown", adjusted)
+        adjusted = self.rect.copy()
+        adjusted.x -= scroll_x
+        WINDOW.blit(self.sprite, (adjusted.x, adjusted.y))
+
 
 
 class Boo(Enemy):
-    def __init__(self, x, y, width=45, height=45, speed=2, patrol_width=200, patrol_height=100):
+    SPRITES = [
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 120, 184, 16, 16, 2),  # LOT W LEWO [1]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 150, 184, 16, 16, 2),  # LOT W LEWO [2]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 180, 184, 16, 16, 2),  # LOT W PRAWO [1]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 210, 184, 16, 16, 2)  # LOT W PRAWO [2]
+    ]
+
+    def __init__(self, x, y, width=32, height=32, speed=2, patrol_width=200):
         super().__init__(x, y, width, height, speed)
         self.start_x = x
         self.start_y = y
         self.patrol_width = patrol_width
-        self.patrol_height = patrol_height
         self.current_side = 0
-        self.original_speed = abs(self.speed)  # Użyj prędkości z trudnością
-    
-        self.corners = [
-            (self.start_x + self.patrol_width, self.start_y), 
-            (self.start_x + self.patrol_width, self.start_y + self.patrol_height),  
-            (self.start_x, self.start_y + self.patrol_height),  
-            (self.start_x, self.start_y)  
-        ]
-        
+        self.original_speed = abs(speed)
+        self.animation_count = 0
+        self.sprite_index = 0
+        self.sprite = self.SPRITES[0]
+        self.alive = True
+        self.to_remove = False
+        self.death_timer = 0
+        self.death_duration = 30
+        self.float_timer = 0
+        self.rect = self.sprite.get_rect(topleft=(x, y))
+
+
     def update(self, player, objects):
         if not self.alive:
+            self.sprite = self.SPRITES[2]
+            self.death_timer += 1
+            if self.death_timer >= self.death_duration:
+                self.to_remove = True
             return
 
-        self.fly_in_rectangle()
+        self.fly_left_right()
+
+        self.float_timer += 0.1
+        self.rect.y = self.start_y + int(math.sin(self.float_timer) * 5)
+
+        self.animation_count += 1
+        if self.animation_count >= 10:
+            self.animation_count = 0
+            self.sprite_index = 1 if self.sprite_index == 0 else 0
+        self.sprite = self.SPRITES[self.sprite_index]
+
+        self.move_and_collide(objects)
 
         if self.rect.colliderect(player.rect):
-            if player.rect.bottom <= self.rect.top + 20:
+            if player.rect.bottom <= self.rect.top + 20 and player.y_vel > 0:
                 self.alive = False
                 player.score += 3
                 player.y_vel = -15
@@ -355,29 +406,23 @@ class Boo(Enemy):
                     player.rect.x -= 50
                     player.y_vel = -10
 
-    def fly_in_rectangle(self):
-        target_corner = self.corners[self.current_side]
-        
-        dx = target_corner[0] - self.rect.centerx
-        dy = target_corner[1] - self.rect.centery
-        
-        if abs(dx) < self.original_speed + 2 and abs(dy) < self.original_speed + 2:
-            self.current_side = (self.current_side + 1) % 4
-            self.rect.centerx = target_corner[0]
-            self.rect.centery = target_corner[1]
-        else:
-            distance = max(abs(dx), abs(dy))
-            if distance > 0:
-                move_x = (dx / distance) * self.original_speed
-                move_y = (dy / distance) * self.original_speed
-                self.rect.x += int(move_x)
-                self.rect.y += int(move_y)
+    def fly_left_right(self):
+        self.rect.x += self.speed
+
+        if self.rect.x <= self.start_x - self.patrol_width // 2:
+            self.rect.x = self.start_x - self.patrol_width // 2
+            self.speed *= -1
+
+        elif self.rect.x + self.rect.width >= self.start_x + self.patrol_width // 2:
+            self.rect.x = self.start_x + self.patrol_width // 2 - self.rect.width
+            self.speed *= -1
 
     def draw(self, scroll_x):
         if self.alive:
             adjusted = self.rect.copy()
             adjusted.x -= scroll_x
-            pygame.draw.rect(WINDOW, "white", adjusted)
+            WINDOW.blit(self.sprite, (adjusted.x, adjusted.y))
+
 
 
 class Object(pygame.sprite.Sprite):
@@ -594,14 +639,14 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
 def restart_game():
     global CURRENT_DIFFICULTY
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
-    player = Player(400, FLOOR_LEVEL, 50, 50, lives)
+    player = Player(2000, FLOOR_LEVEL, 50, 50, lives)
     
     speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
         Goomba(1000, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 450),  
         Goomba(1750, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 400),  
-        Boo(2500, 350, 45, 45, int(3 * speed_mult), 200, 120),  
-        Boo(3200, 350, 45, 45, int(3 * speed_mult), 200, 120),  
+        Boo(2600, FLOOR_LEVEL-60, 45, 45, int(3 * speed_mult), 450),
+        Boo(3200, FLOOR_LEVEL-75, 45, 45, int(3 * speed_mult), 200),
         Goomba(4000, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 400),  
     ]
     return player, enemies
@@ -695,6 +740,8 @@ def main():
                 
                 # OBSŁUGA GRY
                 elif GAME_ACTIVE and GAME_STARTED:
+
+                    enemies = [enemy for enemy in enemies if not enemy.to_remove]
                    
                     if player and player.rect.x > 6680 and player.rect.x < 6870 and not GAME_FINISHED:
                         GAME_FINISHED = True
