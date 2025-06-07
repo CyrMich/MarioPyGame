@@ -14,57 +14,69 @@ WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Mario")
 
 # TŁO
-BACKGROUND = pygame.transform.scale(pygame.image.load("resources\\graphics\\level_1.png"),(7000,600))
+BACKGROUND = pygame.transform.scale(pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\level_1.png"),(7000,600))
 
 # MUZYKA
-pygame.mixer.music.load("resources\\music\\main_theme.ogg")
+# pygame.mixer.music.load("resources\\music\\main_theme.ogg")
 # pygame.mixer.music.play(-1)
 # pygame.mixer.music.set_volume(0.5)
-
-JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
-JUMP_SOUND.set_volume(0.5)
-
-SPRITE_SHEET = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
 
 FLOOR_LEVEL = 536
 
 FPS = 60
 PLAYER_VEL = 10  # DOCELOWO 5 DLA TESTOW JEST WIECEJ
-GAME_ACTIVE = True
+GAME_ACTIVE = False  # Zmienione na False - gra zaczyna się od menu
 GAME_PAUSED = False
 GAME_FINISHED = False
-TIME = 100
+GAME_STARTED = False  # Nowa zmienna do śledzenia czy gra została rozpoczęta
+TIME=100
+
+# Poziomy trudności
+DIFFICULTY_SETTINGS = {
+    "ŁATWY": {
+        "player_lives": 5,
+        "enemy_speed_multiplier": 0.7,
+        "score_multiplier":0.8
+    },
+    "ŚREDNI": {
+        "player_lives": 3,
+        "enemy_speed_multiplier": 1.0,
+        "score_multiplier":1.2
+    },
+    "TRUDNY": {
+        "player_lives": 1,
+        "enemy_speed_multiplier": 1.5,
+        "score_multiplier":1.85
+    }
+}
+
+CURRENT_DIFFICULTY = "ŚREDNI"
 
 class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5  # DO USTALENIA
 
-    def __init__(self, x, y, width, height, sprites, lives):
+    def __init__(self, x, y, width, height, lives):
         super().__init__()
         self.rect = pygame.Rect(x, y-height, width, height)
         self.x_vel = 0
         self.y_vel = 0
+        self.direction = "left"
         self.jump = False
-        self.sprites = sprites
-        self.direction = "right"
-        self.animation_count = 0
-        self.lives=lives
-        self.score=0  # Zmienione z 1 na 0 dla lepszej logiki
+        self.lives = lives
+        self.max_lives = lives  # Zapamiętaj maksymalną liczbę żyć
+        self.score = 0
 
     def do_jump(self):
         if not self.jump:
-            self.y_vel = -self.GRAVITY * 16
+            self.y_vel = -self.GRAVITY * 16 
             self.jump = True
-            # JUMP_SOUND.play()
 
     def check_if_airborne(self, objects):
-        # PROSTOKĄT POD GRACZEM SPRAWDZA CZY WYLĄDOWAŁ
         rect_below = self.rect.move(0, 1)
-
         for obj in objects:
             if rect_below.colliderect(obj.rect):
                 self.jump = False
                 return
-
         self.jump = True
 
     def landed(self):
@@ -74,36 +86,28 @@ class Player(pygame.sprite.Sprite):
     def move_left(self, vel):
         self.x_vel = -vel
 
-        if self.direction != "left":
-            self.direction = "left"
-            self.animation_count = 0
-
     def move_right(self, vel):
         self.x_vel = vel
 
-        if self.direction != "right":
-            self.direction = "right"
-            self.animation_count = 0
+    def move(self, dx, dy):
+        self.rect.x += dx
+        self.rect.y += dy
 
-    # PĘTLA GRACZA
-    def loop(self,objects):
+    def loop(self, objects):
         self.check_if_airborne(objects)
 
         if self.rect.y > HEIGHT + 50:
             self.lives -= 1
             if self.lives <= 0:
                 self.reset()
-                self.lives = 3  # Reset liczby żyć po śmierci
+                self.lives = self.max_lives
             else:
                 self.rect.x = 400
                 self.rect.y = 300
                 self.y_vel = 0
                 self.jump = False
 
-        self.update_sprite()
-        self.update()
-
-        self.y_vel += self.GRAVITY  # GRAWITACJA
+        self.y_vel += self.GRAVITY 
         self.rect.y += self.y_vel
 
     def reset(self):
@@ -111,42 +115,13 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = 300
         self.y_vel = 0
         self.jump = False
-        self.lives = 3 
-        self.score = 0  # RESET WYNIKU
-
-    def update_sprite(self):
-        # Animacja skoku
-        if self.y_vel != 0:
-            self.sprite_index = 4  # skacze
-
-        # Animacja biegu
-        elif self.x_vel != 0:
-            self.animation_counter += 1
-            if self.animation_counter >= 6:  # zmiana co 10 klatek
-                self.animation_counter = 0
-                self.sprite_index += 1
-                if self.sprite_index > 3:
-                    self.sprite_index = 1  # pętla 1-3 (bieganie)
-
-        # Postać stoi
-        else:
-            self.sprite_index = 0
-            self.animation_counter = 0
-
-        # Ustaw sprite zgodnie z kierunkiem
-        if self.direction == "right":
-            self.sprite = self.sprites[self.sprite_index]
-        elif self.direction == "left":
-            self.sprite = pygame.transform.flip(self.sprites[self.sprite_index], True, False)
-
-    def update(self):
-        self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.lives = self.max_lives
+        self.score = 0
 
     def draw(self, scroll_x):
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
-
-        WINDOW.blit(self.sprite, (adjusted_rect.x, adjusted_rect.y))
+        pygame.draw.rect(WINDOW, "red", adjusted_rect)
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -155,7 +130,8 @@ class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, speed=2):
         super().__init__()
         self.rect = pygame.Rect(x, y, width, height)
-        self.speed = speed
+        self.base_speed = speed
+        self.speed = speed * DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
         self.y_vel = 0
         self.alive = True
 
@@ -165,7 +141,6 @@ class Enemy(pygame.sprite.Sprite):
             self.y_vel = 10
 
     def move_and_collide(self, objects):
-        # RUCH W POZIOMIE
         self.rect.x += self.speed
         for obj in objects:
             if self.rect.colliderect(obj.rect):
@@ -173,9 +148,8 @@ class Enemy(pygame.sprite.Sprite):
                     self.rect.right = obj.rect.left
                 else:
                     self.rect.left = obj.rect.right
-                self.speed *= -1  # ZMIANA KIERUNKU
+                self.speed *= -1
 
-        # RUCH W PIONIE
         self.rect.y += self.y_vel
         for obj in objects:
             if self.rect.colliderect(obj.rect):
@@ -193,7 +167,6 @@ class Enemy(pygame.sprite.Sprite):
         self.apply_gravity()
         self.move_and_collide(objects)
 
-        # KOLIZJA Z GRACZEM
         if self.rect.colliderect(player.rect):
             if player.rect.bottom <= self.rect.top+20:
                 self.alive = False
@@ -203,10 +176,10 @@ class Enemy(pygame.sprite.Sprite):
                 player.lives -= 1
                 if player.lives <= 0:
                     player.reset()
-                    player.lives = 3  # Reset żyć po śmierci
+                    player.lives = player.max_lives
                 else:
-                    player.rect.x -= 50  # Cofa gracza
-                    player.y_vel = -10   # Daje odrzut po uderzeniu
+                    player.rect.x -= 50
+                    player.y_vel = -10
 
     def draw(self, scroll_x):
         if self.alive:
@@ -221,7 +194,7 @@ class Enemy(pygame.sprite.Sprite):
 class Goomba(Enemy):
     def __init__(self, x, y, width=45, height=45, speed=2, walking_range=200):
         super().__init__(x, y-height, width, height, speed)
-        self.original_speed = abs(speed)
+        self.original_speed = abs(self.speed)  # Użyj prędkości z trudnością
         self.walking_range = walking_range
         self.start_x = x
         self.left_boundary = x - walking_range // 2
@@ -232,10 +205,10 @@ class Goomba(Enemy):
         
         if next_x <= self.left_boundary:
             self.rect.x = self.left_boundary
-            self.speed = abs(self.speed)  
+            self.speed = abs(self.speed)
         elif next_x + self.rect.width >= self.right_boundary:
             self.rect.x = self.right_boundary - self.rect.width
-            self.speed = -abs(self.speed)  
+            self.speed = -abs(self.speed)
         else:
             self.rect.x = next_x
 
@@ -245,8 +218,7 @@ class Goomba(Enemy):
                     self.rect.right = obj.rect.left
                 else:
                     self.rect.left = obj.rect.right
-                self.speed *= -1  
-     
+                self.speed *= -1
     
     def update(self, player, objects):
         if not self.alive:
@@ -255,18 +227,17 @@ class Goomba(Enemy):
         self.apply_gravity()
         self.move_and_collide(objects)
 
-        # KOLIZJA Z GRACZEM
         if self.rect.colliderect(player.rect):
             if player.rect.bottom <= self.rect.top + 20:
                 self.alive = False
-                player.score+=2
+                player.score += 2
                 player.y_vel = -15
                 player.jump = True
             else:
                 player.lives -= 1
                 if player.lives <= 0:
                     player.reset()
-                    player.lives = 3
+                    player.lives = player.max_lives
                 else:
                     player.rect.x -= 50
                     player.y_vel = -10
@@ -275,7 +246,7 @@ class Goomba(Enemy):
         if self.alive:
             adjusted = self.rect.copy()
             adjusted.x -= scroll_x
-            pygame.draw.rect(WINDOW, "brown", adjusted)  
+            pygame.draw.rect(WINDOW, "brown", adjusted)
 
 
 class Boo(Enemy):
@@ -285,8 +256,8 @@ class Boo(Enemy):
         self.start_y = y
         self.patrol_width = patrol_width
         self.patrol_height = patrol_height
-        self.current_side = 0  
-        self.original_speed = abs(speed)
+        self.current_side = 0
+        self.original_speed = abs(self.speed)  # Użyj prędkości z trudnością
     
         self.corners = [
             (self.start_x + self.patrol_width, self.start_y), 
@@ -295,7 +266,7 @@ class Boo(Enemy):
             (self.start_x, self.start_y)  
         ]
         
-    def update(self, player,objects):
+    def update(self, player, objects):
         if not self.alive:
             return
 
@@ -304,14 +275,14 @@ class Boo(Enemy):
         if self.rect.colliderect(player.rect):
             if player.rect.bottom <= self.rect.top + 20:
                 self.alive = False
-                player.score+=3
+                player.score += 3
                 player.y_vel = -15
                 player.jump = True
             else:
                 player.lives -= 1
                 if player.lives <= 0:
                     player.reset()
-                    player.lives = 3
+                    player.lives = player.max_lives
                 else:
                     player.rect.x -= 50
                     player.y_vel = -10
@@ -338,7 +309,8 @@ class Boo(Enemy):
         if self.alive:
             adjusted = self.rect.copy()
             adjusted.x -= scroll_x
-            pygame.draw.rect(WINDOW, "white", adjusted) 
+            pygame.draw.rect(WINDOW, "white", adjusted)
+
 
 class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, color="green", visible=False):
@@ -354,28 +326,43 @@ class Object(pygame.sprite.Sprite):
         adjusted_rect.x -= scroll_x
         pygame.draw.rect(WINDOW, self.color, adjusted_rect)
 
+
+class Object_storage(Object):
+    def __init__(self, list_of_objects=[]):
+        self.list_of_objects = list_of_objects
+    
+    def add_object(self, obj):
+        self.list_of_objects.append(obj)
+    
+    def add_obj_list(self, obj_list):
+        self.list_of_objects += obj_list
+    
+    def get_obj_list(self):
+        return self.list_of_objects
+
+
 def handle_horizontal_collision(player, objects):
     for obj in objects:
         if player.rect.colliderect(obj.rect):
-            if player.x_vel > 0:  # w prawo
+            if player.x_vel > 0:
                 player.rect.right = obj.rect.left
-            elif player.x_vel < 0:  # w lewo
+            elif player.x_vel < 0:
                 player.rect.left = obj.rect.right
+
 
 def handle_vertical_collision(player, objects):
     for obj in objects:
         if player.rect.colliderect(obj.rect):
-            if player.y_vel > 0:  # Spada
+            if player.y_vel > 0:
                 player.rect.bottom = obj.rect.top
                 player.landed()
-            elif player.y_vel < 0:  # Wznosi się
+            elif player.y_vel < 0:
                 player.rect.top = obj.rect.bottom
                 player.y_vel = 0
 
-# FUNKCJA OBSLUGUJACA RUCH GRACZA
+
 def handle_move(player):
     keys = pygame.key.get_pressed()
-
     player.x_vel = 0
 
     if keys[pygame.K_a] and player.rect.x > 0:
@@ -383,7 +370,51 @@ def handle_move(player):
     if keys[pygame.K_d] and player.rect.x + player.rect.width < 7000:
         player.move_right(PLAYER_VEL)
 
-# FUNKCJA RYSUJACA EKRAN PAUZY
+
+def draw_main_menu(selected_option):
+    WINDOW.fill((30, 30, 80))  
+    
+    title_text = FONT.render("MARIO GAME", True, "yellow")
+    title_rect = title_text.get_rect(center=(WIDTH//2,30))
+    WINDOW.blit(title_text, title_rect)
+
+    mario_start=pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioStart.png").convert_alpha()
+    mario_rect=mario_start.get_rect(center=(WIDTH//2,140))
+    WINDOW.blit(mario_start,mario_rect)
+
+    menu_options = ["ŁATWY", "ŚREDNI", "TRUDNY", "WYJŚCIE"]
+    option_colors = ["white"] * 4
+    option_colors[selected_option] = "red"  
+    
+    descriptions = [
+        "5 żyć, wolniejsi przeciwnicy",
+        "3 życia, normalny poziom",
+        "1 życie, szybsi przeciwnicy",
+        "Zamknij grę"  
+    ]
+    
+    start_y = HEIGHT//2 - 50
+    for i, (option, desc) in enumerate(zip(menu_options, descriptions)):
+        option_text = FONT.render(option, True, option_colors[i])
+        option_rect = option_text.get_rect(center=(WIDTH//2, start_y + i * 70))
+        WINDOW.blit(option_text, option_rect)
+
+        if desc:
+            desc_text = FONT.render(desc, True, "lightgray")
+            desc_rect = desc_text.get_rect(center=(WIDTH//2, start_y + i * 70 + 25))
+            WINDOW.blit(desc_text, desc_rect)
+
+    instruction1 = FONT.render("↑↓ - Wybierz poziom", True, "white")
+    instruction1_rect = instruction1.get_rect(center=(WIDTH//2, HEIGHT - 80))
+    WINDOW.blit(instruction1, instruction1_rect)
+    
+    instruction2 = FONT.render("ENTER - Rozpocznij grę", True, "white")
+    instruction2_rect = instruction2.get_rect(center=(WIDTH//2, HEIGHT - 50))
+    WINDOW.blit(instruction2, instruction2_rect)
+    
+    pygame.display.update()
+
+
 def draw_pause_screen():
     overlay = pygame.Surface((WIDTH, HEIGHT))
     overlay.set_alpha(128)
@@ -402,45 +433,54 @@ def draw_pause_screen():
     instruction2_rect = instruction2.get_rect(center=(WIDTH//2, HEIGHT//2 + 50))
     WINDOW.blit(instruction2, instruction2_rect)
 
-# FUNKCJA RYSUJACA EKRAN KOŃCOWY
-def draw_end_screen(player, start_time):
+
+def draw_end_screen(player, start_time, end_time):
     overlay = pygame.Surface((WIDTH, HEIGHT))
-    overlay.set_alpha(200)
+    overlay.set_alpha(220)
     overlay.fill((0, 0, 0))
     WINDOW.blit(overlay, (0, 0))
     
-    # Obliczanie wyniku końcowego
-    current_time = pygame.time.get_ticks()
-    time_bonus = 100 - int(start_time/1000)  # Bonus za czas
-    final_score = player.score * 10 + player.lives * 50 + time_bonus
+    time_bonus = int(50-(end_time-start_time)/1000)
+    final_score = int((player.score*5+player.lives * 10+time_bonus)*DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["score_multiplier"])
     
-    # Wyświetlanie wyniku
     congrats_text = FONT.render("GRATULACJE!", True, "yellow")
-    congrats_rect = congrats_text.get_rect(center=(WIDTH//2, HEIGHT//2 - 100))
+    congrats_rect = congrats_text.get_rect(topleft=(50, HEIGHT//2 - 100))
     WINDOW.blit(congrats_text, congrats_rect)
     
-    score_text = FONT.render(f"Punkty za przeciwników: {player.score * 10}", True, "white")
-    score_rect = score_text.get_rect(center=(WIDTH//2, HEIGHT//2 - 50))
+    difficulty_text = FONT.render(f"Poziom: {CURRENT_DIFFICULTY}", True, "white")
+    difficulty_rect = difficulty_text.get_rect(topleft=(50, HEIGHT//2 - 70))
+    WINDOW.blit(difficulty_text, difficulty_rect)
+    
+    score_text = FONT.render(f"Punkty za przeciwników: {player.score*5}", True, "white")
+    score_rect = score_text.get_rect(topleft=(50, HEIGHT//2 - 40))
     WINDOW.blit(score_text, score_rect)
     
-    lives_text = FONT.render(f"Bonus za życia: {player.lives * 50}", True, "white")
-    lives_rect = lives_text.get_rect(center=(WIDTH//2, HEIGHT//2 - 20))
+    lives_text = FONT.render(f"Bonus za życia: {player.lives * 10}", True, "white")
+    lives_rect = lives_text.get_rect(topleft=(50, HEIGHT//2 - 10))
     WINDOW.blit(lives_text, lives_rect)
     
     time_text = FONT.render(f"Bonus za czas: {time_bonus}", True, "white")
-    time_rect = time_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 10))
+    time_rect = time_text.get_rect(topleft=(50, HEIGHT//2 + 20))
     WINDOW.blit(time_text, time_rect)
     
-    final_text = FONT.render(f"KOŃCOWY WYNIK: {final_score}", True, "gold")
-    final_rect = final_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 50))
+    final_text = FONT.render(f"Wynik: {final_score}", True, "gold")
+    final_rect = final_text.get_rect(topleft=(50, HEIGHT//2 + 60))
     WINDOW.blit(final_text, final_rect)
     
-    instruction = FONT.render("R - Restart gry", True, "white")
-    instruction_rect = instruction.get_rect(center=(WIDTH//2, HEIGHT//2 + 100))
-    WINDOW.blit(instruction, instruction_rect)
+    instruction1 = FONT.render("R - Restart gry", True, "white")
+    instruction1_rect = instruction1.get_rect(topleft=(50, HEIGHT//2 + 100))
+    WINDOW.blit(instruction1, instruction1_rect)
+    
+    instruction2 = FONT.render("M - Powrót do menu", True, "white")
+    instruction2_rect = instruction2.get_rect(topleft=(50, HEIGHT//2 + 130))
+    WINDOW.blit(instruction2, instruction2_rect)
 
-# FUNKCJA RYSUJACA NA EKRANIE
-def draw(player, objects, enemies, paused=False, finished=False, start_time=0):
+    mario_end=pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioEnd.png").convert_alpha()
+    mario_rect=mario_end.get_rect(midbottom=(600,HEIGHT+15))
+    WINDOW.blit(mario_end,mario_rect)
+
+
+def draw(player, objects, enemies, paused=False, finished=False, start_time=0, end_time=0):
     scroll_x = player.rect.x - WIDTH // 2
     scroll_x = max(0, min(scroll_x, BACKGROUND.get_width() - WIDTH))
 
@@ -454,173 +494,192 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0):
 
     player.draw(scroll_x)
 
-    # X,Y GRACZA I ŻYCIA DO TESTOW
-    text = FONT.render(f"{player.rect.x, player.rect.y}",True,"white")
-    WINDOW.blit(text,(10,10))
+    text = FONT.render(f"{player.rect.x, player.rect.y}", True, "white")
+    WINDOW.blit(text, (10, 10))
+    
+    score_display = FONT.render(f"Wynik: {player.score}", True, "white")
+    WINDOW.blit(score_display, (10, 50))
+    
+    # Wyświetl poziom trudności w grze
+    difficulty_display = FONT.render(f"Poziom: {CURRENT_DIFFICULTY}", True, "white")
+    WINDOW.blit(difficulty_display, (10, 80))
 
-    # Życia
-    live_img=pygame.image.load("resources\\graphics\\marioLive.png")
-    lives=[]
+    live_img = pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioLive.png")
+    lives = []
     for i in range(player.lives):
-        lives.append(live_img.get_rect(center=(750-i*50,50)))
+        lives.append(live_img.get_rect(center=(750-i*50, 50)))
     for i in range(player.lives):
-        WINDOW.blit(live_img,lives[i])
-    lives_text = FONT.render(f"Życia:",True,"white")
+        WINDOW.blit(live_img, lives[i])
+    lives_text = FONT.render(f"Życia:", True, "white")
     text_x = lives[-1].x - 80  
     text_y = lives[-1].centery - lives_text.get_height() // 2 
     WINDOW.blit(lives_text, (text_x, text_y))
     
-    # Rysuj odpowiedni ekran
     if finished:
-        draw_end_screen(player, start_time)
+        draw_end_screen(player, start_time, end_time)
     elif paused:
         draw_pause_screen()
 
     pygame.display.update()
 
-def get_image_from_sheet(x, y, width, height, scale=1):
-    image = pygame.Surface((width, height), pygame.SRCALPHA)
-    image.blit(SPRITE_SHEET, (0, 0), pygame.Rect(x, y, width, height))
-    if scale != 1:
-        image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
-    return image
 
-def restart_game(sprites):
-    # Funkcja resetująca grę do stanu początkowego
-    player = Player(400, FLOOR_LEVEL, 50, 50, sprites, 3)
+def restart_game():
+    global CURRENT_DIFFICULTY
+    lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
+    player = Player(6400, FLOOR_LEVEL, 50, 50, lives)
+    
+    speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
-        Goomba(1000, FLOOR_LEVEL, 45, 45, 3, 450),  
-        Goomba(1750, FLOOR_LEVEL, 45, 45, 3, 400),  
-        Boo(2500, 350, 45, 45, 3, 200, 120),  
-        Boo(3200, 350, 45, 45, 3, 200, 120),  
-        Goomba(4000, FLOOR_LEVEL, 45, 45, 3, 400),  
+        Goomba(1000, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 450),  
+        Goomba(1750, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 400),  
+        Boo(2500, 350, 45, 45, int(3 * speed_mult), 200, 120),  
+        Boo(3200, 350, 45, 45, int(3 * speed_mult), 200, 120),  
+        Goomba(4000, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 400),  
     ]
     return player, enemies
 
 
+def initialize_level():
+    obj_storage = Object_storage()
+    obj_storage.add_object(Object(0, FLOOR_LEVEL+5, 2279, 5))
+    obj_storage.add_object(Object(2345, FLOOR_LEVEL+5, 495, 5))
+    obj_storage.add_object(Object(2939, FLOOR_LEVEL+5, 2113, 5))
+    obj_storage.add_object(Object(5118, FLOOR_LEVEL+5, 1900, 5))
+    obj_storage.add_object(Object(926, FLOOR_LEVEL, 64, 86, "green"))
+    obj_storage.add_object(Object(1256, FLOOR_LEVEL, 64, 128, "green"))
+    obj_storage.add_object(Object(1520, FLOOR_LEVEL, 64, 172, "green"))
+    obj_storage.add_object(Object(1884, FLOOR_LEVEL, 64, 172, "green"))
+    obj_storage.add_object(Object(5384, FLOOR_LEVEL, 64, 86, "green"))
+    obj_storage.add_object(Object(5912, FLOOR_LEVEL, 64, 86, "green"))
+    obj_storage.add_object(Object(4424, FLOOR_LEVEL, 32, 43, "brown"))
+    obj_storage.add_object(Object(4458, FLOOR_LEVEL, 33, 86, "brown"))
+    obj_storage.add_object(Object(4491, FLOOR_LEVEL, 33, 129, "brown"))
+    obj_storage.add_object(Object(4524, FLOOR_LEVEL, 33, 172, "brown"))
+    obj_storage.add_object(Object(4623, FLOOR_LEVEL, 33, 172, "brown"))
+    obj_storage.add_object(Object(4656, FLOOR_LEVEL, 33, 129, "brown"))
+    obj_storage.add_object(Object(4689, FLOOR_LEVEL, 33, 86, "brown"))
+    obj_storage.add_object(Object(4722, FLOOR_LEVEL, 33, 43, "brown"))
+    obj_storage.add_object(Object(4886, FLOOR_LEVEL, 33, 43, "brown"))
+    obj_storage.add_object(Object(4919, FLOOR_LEVEL, 33, 86, "brown"))
+    obj_storage.add_object(Object(4952, FLOOR_LEVEL, 33, 129, "brown"))
+    obj_storage.add_object(Object(4985, FLOOR_LEVEL, 33, 172, "brown"))
+    obj_storage.add_object(Object(5018, FLOOR_LEVEL, 33, 172, "brown"))
+    obj_storage.add_object(Object(5118, FLOOR_LEVEL, 33, 172, "brown"))
+    obj_storage.add_object(Object(5151, FLOOR_LEVEL, 33, 129, "brown"))
+    obj_storage.add_object(Object(5184, FLOOR_LEVEL, 33, 86, "brown"))
+    obj_storage.add_object(Object(5217, FLOOR_LEVEL, 33, 43, "brown"))
+    obj_storage.add_object(Object(5977, FLOOR_LEVEL, 33, 43, "brown"))
+    obj_storage.add_object(Object(6010, FLOOR_LEVEL, 33, 86, "brown"))
+    obj_storage.add_object(Object(6043, FLOOR_LEVEL, 33, 129, "brown"))
+    obj_storage.add_object(Object(6076, FLOOR_LEVEL, 33, 172, "brown"))
+    obj_storage.add_object(Object(6109, FLOOR_LEVEL, 33, 215, "brown"))
+    obj_storage.add_object(Object(6142, FLOOR_LEVEL, 33, 258, "brown"))
+    obj_storage.add_object(Object(6175, FLOOR_LEVEL, 33, 301, "brown"))
+    obj_storage.add_object(Object(6208, FLOOR_LEVEL, 33, 344, "brown"))
+    obj_storage.add_object(Object(6241, FLOOR_LEVEL, 33, 344, "brown"))
+    obj_storage.add_object(Object(6538, FLOOR_LEVEL, 33, 43, "brown"))
+    return obj_storage.get_obj_list()
+
+
 def main():
-    global GAME_PAUSED, GAME_FINISHED
+    global GAME_PAUSED, GAME_FINISHED, GAME_ACTIVE, GAME_STARTED, CURRENT_DIFFICULTY
+    
     run = True
     clock = pygame.time.Clock()
-    start_time = pygame.time.get_ticks()
-
-    small_mario_imgs = [
-        get_image_from_sheet(178, 32, 12, 16, 3),  # MARIO STOI W MIEJSCU
-        get_image_from_sheet(80, 32, 15, 16, 3),  # MARIO CHÓD [1]
-        get_image_from_sheet(96, 32, 16, 16, 3),  # MARIO CHÓD [2]
-        get_image_from_sheet(112, 32, 16, 16, 3),  # MARIO CHÓD [3]
-        get_image_from_sheet(144, 32, 16, 16, 3)  # MARIO SKACZE
-    ]
-
-    big_mario_imgs = []
-
-    player, enemies = restart_game(small_mario_imgs)
-
-    floor1 = Object(0, FLOOR_LEVEL+5, 2279, 5)
-    floor2 = Object(2345, FLOOR_LEVEL+5, 495, 5)
-    floor3 = Object(2939, FLOOR_LEVEL+5, 2113, 5)
-    floor4 = Object(5118, FLOOR_LEVEL+5, 1900, 5)
-
-    pipe1 = Object(926, FLOOR_LEVEL, 64, 86, "green",False) 
-    pipe2 = Object(1256, FLOOR_LEVEL, 64, 128, "green",False) 
-    pipe3 = Object(1520, FLOOR_LEVEL, 64, 172, "green",False)
-    pipe4 = Object(1884, FLOOR_LEVEL, 64, 172, "green",False)
-    pipe5 = Object(5384, FLOOR_LEVEL, 64, 86, "green",False) 
-    pipe6 = Object(5912, FLOOR_LEVEL, 64, 86, "green",False) 
+    start_time = 0
+    end_time = 0
+    selected_menu_option = 1  # Domyślnie SREDNI (indeks 1)
     
-    stairs1 = Object(4424, FLOOR_LEVEL, 32, 43, "brown",False)
-    stairs2 = Object(4458, FLOOR_LEVEL, 33, 86, "brown",False)
-    stairs3 = Object(4491, FLOOR_LEVEL, 33, 129, "brown",False)
-    stairs4 = Object(4524, FLOOR_LEVEL, 33, 172, "brown",False)
-
-    stairs5 = Object(4623, FLOOR_LEVEL, 33, 172, "brown",False)
-    stairs6 = Object(4656, FLOOR_LEVEL, 33, 129, "brown",False)
-    stairs7 = Object(4689, FLOOR_LEVEL, 33, 86, "brown",False)
-    stairs8 = Object(4722, FLOOR_LEVEL, 33, 43, "brown",False)
-    
-    stairs9 = Object(4886, FLOOR_LEVEL, 33, 43, "brown",False)
-    stairs10 = Object(4919, FLOOR_LEVEL, 33, 86, "brown",False)
-    stairs11 = Object(4952, FLOOR_LEVEL, 33, 129, "brown",False)
-    stairs12 = Object(4985, FLOOR_LEVEL, 33, 172, "brown",False)
-    stairs13 = Object(5018, FLOOR_LEVEL, 33, 172, "brown",False)
-
-    stairs14 = Object(5118, FLOOR_LEVEL, 33, 172, "brown",False)   
-    stairs15 = Object(5151, FLOOR_LEVEL, 33, 129, "brown",False)   
-    stairs16 = Object(5184, FLOOR_LEVEL, 33, 86, "brown",False)   
-    stairs17 = Object(5217, FLOOR_LEVEL, 33, 43, "brown",False)
-
-    stairs18 = Object(5977, FLOOR_LEVEL, 33, 43, "brown",False)
-    stairs19 = Object(6010, FLOOR_LEVEL, 33, 86, "brown",False)
-    stairs20 = Object(6043, FLOOR_LEVEL, 33, 129, "brown",False)
-    stairs21 = Object(6076, FLOOR_LEVEL, 33, 172, "brown",False)
-    stairs22 = Object(6109, FLOOR_LEVEL, 33, 215, "brown",False)
-    stairs23 = Object(6142, FLOOR_LEVEL, 33, 258, "brown",False)
-    stairs24 = Object(6175, FLOOR_LEVEL, 33, 301, "brown",False)
-    stairs25 = Object(6208, FLOOR_LEVEL, 33, 344, "brown",False)
-    stairs26 = Object(6241, FLOOR_LEVEL, 33, 344, "brown",False)
-
-    stairs27 = Object(6538, FLOOR_LEVEL, 33, 43, "brown",False)
-
-    winning_gate=Object(6715,FLOOR_LEVEL,20,70,"brown",True)
-    
-    objects = [
-        floor1, floor2, floor3, floor4,
-        pipe1, pipe2,pipe3,pipe4,pipe5,pipe6,
-        stairs1,stairs2,stairs3,stairs4,stairs5,stairs6,stairs7,
-        stairs8,stairs9,stairs10,stairs11,stairs12,stairs13,stairs14,
-        stairs15,stairs16,stairs17,stairs18,stairs19,stairs20,stairs21,
-        stairs22,stairs23,stairs24,stairs25,stairs26,stairs27,
-        winning_gate
-    ]
+    player = None
+    enemies = []
+    objects = []
 
     # GŁÓWNA PĘTLA GRY
     while run:
         clock.tick(FPS)
 
-        # Sprawdzenie czy gracz dotarł do strefy końcowej
-        if player.rect.x > 6680 and player.rect.x < 6770 and not GAME_FINISHED:
-            GAME_FINISHED = True
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
                 break
-                
-            if event.type == pygame.KEYDOWN:
-                # Obsługa pauzy (tylko gdy gra nie jest skończona)
-                if event.key == pygame.K_ESCAPE and not GAME_FINISHED:
-                    GAME_PAUSED = not GAME_PAUSED
-                
-                # Restart 
-                if event.key == pygame.K_r and (GAME_PAUSED or GAME_FINISHED):
-                    player, enemies = restart_game(small_mario_imgs)
-                    GAME_PAUSED = False
-                    GAME_FINISHED = False
-                    start_time = pygame.time.get_ticks()  # Reset czasu
-                
-                if (event.key == pygame.K_w or event.key == pygame.K_SPACE) and not player.jump and not GAME_PAUSED and not GAME_FINISHED:
-                    player.do_jump()
-
-        # Aktualizuj grę tylko gdy nie jest zatrzymana ani skończona
-        if not GAME_PAUSED and not GAME_FINISHED:
-            handle_move(player)
-
-            player.rect.x += player.x_vel
-            handle_horizontal_collision(player, objects)
-
-            player.loop(objects)
-
-            handle_vertical_collision(player, objects)
-
-            scroll_x = max(0, min(player.rect.x - WIDTH // 2, BACKGROUND.get_width() - WIDTH))
-
-            for enemy in enemies[:]:
-                enemy.update(player, objects)
-                enemy.draw(scroll_x)
-                if enemy.rect.x + WIDTH < player.rect.x or enemy.rect.y - HEIGHT > player.rect.y:
-                    enemies.remove(enemy)
             
-        draw(player, objects, enemies, GAME_PAUSED, GAME_FINISHED, start_time)
+            if event.type == pygame.KEYDOWN:
+                # OBSŁUGA MENU GŁÓWNEGO
+                if not GAME_ACTIVE and not GAME_STARTED:
+                    if event.key == pygame.K_UP:
+                        selected_menu_option = (selected_menu_option - 1) % 4
+                    elif event.key == pygame.K_DOWN:
+                        selected_menu_option = (selected_menu_option + 1) % 4
+                    elif event.key == pygame.K_RETURN:
+                        if selected_menu_option == 3:  
+                            run = False
+                        else:
+                            difficulty_names = ["ŁATWY", "ŚREDNI", "TRUDNY"]
+                            CURRENT_DIFFICULTY = difficulty_names[selected_menu_option]
+                            
+                           
+                            GAME_ACTIVE = True
+                            GAME_STARTED = True
+                            player, enemies = restart_game()
+                            objects = initialize_level()
+                            start_time = pygame.time.get_ticks()
+                            end_time = 0
+                
+                # OBSŁUGA GRY
+                elif GAME_ACTIVE and GAME_STARTED:
+                   
+                    if player and player.rect.x > 6680 and player.rect.x < 6870 and not GAME_FINISHED:
+                        GAME_FINISHED = True
+                        end_time = pygame.time.get_ticks()
+                        
+                    
+                    if event.key == pygame.K_ESCAPE and not GAME_FINISHED:
+                        GAME_PAUSED = not GAME_PAUSED
+                    
+                    # Restart 
+                    if event.key == pygame.K_r and (GAME_PAUSED or GAME_FINISHED):
+                        player, enemies = restart_game()
+                        GAME_PAUSED = False
+                        GAME_FINISHED = False
+                        start_time = pygame.time.get_ticks()
+                        end_time = 0
+                    
+                    if event.key == pygame.K_m and GAME_FINISHED:
+                        GAME_ACTIVE = False
+                        GAME_STARTED = False
+                        GAME_FINISHED = False
+                        GAME_PAUSED = False
+                        selected_menu_option = 1  
+
+                    if (event.key == pygame.K_w or event.key == pygame.K_SPACE) and player and not player.jump and not GAME_PAUSED and not GAME_FINISHED:
+                        player.do_jump()
+
+        # WYŚWIETLANIE MENU GŁÓWNEGO
+        if not GAME_ACTIVE and not GAME_STARTED:
+            draw_main_menu(selected_menu_option)
+            continue
+
+        # AKTUALIZACJA GRY
+        if GAME_ACTIVE and GAME_STARTED and player:
+            if not GAME_PAUSED and not GAME_FINISHED:
+                handle_move(player)
+
+                player.rect.x += player.x_vel
+                handle_horizontal_collision(player, objects)
+
+                player.loop(objects)
+                handle_vertical_collision(player, objects)
+
+                scroll_x = max(0, min(player.rect.x - WIDTH // 2, BACKGROUND.get_width() - WIDTH))
+
+                for enemy in enemies[:]:
+                    enemy.update(player, objects)
+                    enemy.draw(scroll_x)
+                    if enemy.rect.x + WIDTH < player.rect.x or enemy.rect.y - HEIGHT > player.rect.y:
+                        enemies.remove(enemy)
+            
+           
+            draw(player, objects, enemies, GAME_PAUSED, GAME_FINISHED, start_time, end_time)
 
     pygame.quit()
     quit()
