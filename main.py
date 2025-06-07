@@ -19,8 +19,8 @@ BACKGROUND = pygame.transform.scale(pygame.image.load("resources\\graphics\\leve
 
 # MUZYKA
 pygame.mixer.music.load("resources\\music\\main_theme.ogg")
-pygame.mixer.music.play(-1)
-pygame.mixer.music.set_volume(0.5)
+# pygame.mixer.music.play(-1)
+# pygame.mixer.music.set_volume(0.5)
 
 JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
 JUMP_SOUND.set_volume(0.5)
@@ -94,12 +94,15 @@ class Player(pygame.sprite.Sprite):
         self.x_vel = 0
         self.y_vel = 0
         self.jump = False
-        self.sprites = self.SMALL_SPRITES
+        self.sprites = self.BIG_SPRITES
         self.direction = "right"
         self.animation_count = 0
         self.lives = lives
         self.max_lives = lives  # Zapamiętaj maksymalną liczbę żyć
         self.score = 0
+        self.invincible = False
+        self.invincible_timer = 0
+        self.invincibility_duration = 3000
 
     def do_jump(self):
         if not self.jump:
@@ -133,6 +136,11 @@ class Player(pygame.sprite.Sprite):
 
     def loop(self, objects):
         self.check_if_airborne(objects)
+
+        if self.invincible:
+            now = pygame.time.get_ticks()
+            if now - self.invincibility_timer > self.invincibility_duration:
+                self.invincible = False
 
         if self.rect.y > HEIGHT + 50:
             self.lives -= 1
@@ -305,8 +313,9 @@ class Goomba(Enemy):
         if not self.alive:
             self.sprite = self.SPRITES[2]
             self.death_timer += 1
+
             if self.death_timer >= self.death_duration:
-                self.to_remove = True  # oznacz do usunięcia
+                self.to_remove = True
             return
 
         self.animation_count += 1
@@ -315,14 +324,16 @@ class Goomba(Enemy):
             self.sprite_index = 1 if self.sprite_index == 0 else 0
         self.sprite = self.SPRITES[self.sprite_index]
 
-        # Zaktualizuj rect po zmianie sprite'a
         self.rect = self.sprite.get_rect(topleft=(self.rect.x,self.rect.y))
 
         self.apply_gravity()
         self.move_and_collide(objects)
 
-        # Kolizja z graczem
+        # KOLIZJA Z GRACZEM
         if self.rect.colliderect(player.rect):
+            if player.invincible:
+                return
+
             if player.rect.bottom <= self.rect.top + 20 and player.y_vel > 0:
                 self.alive = False
                 player.score += 2
@@ -330,12 +341,17 @@ class Goomba(Enemy):
                 player.jump = True
             else:
                 player.lives -= 1
+                player.invincible = True
+                player.invincibility_timer = pygame.time.get_ticks()
+
                 if player.lives <= 0:
                     player.reset()
                     player.lives = player.max_lives
                 else:
                     player.rect.x -= 50
                     player.y_vel = -10
+
+
 
     def draw(self, scroll_x):
         adjusted = self.rect.copy()
@@ -386,12 +402,22 @@ class Boo(Enemy):
         self.animation_count += 1
         if self.animation_count >= 10:
             self.animation_count = 0
-            self.sprite_index = 1 if self.sprite_index == 0 else 0
+
+            # Lot w lewo
+            if self.speed < 0:
+                self.sprite_index = 0 if self.sprite_index != 0 else 1
+            else:  # Lot w prawo
+                self.sprite_index = 2 if self.sprite_index != 2 else 3
+
         self.sprite = self.SPRITES[self.sprite_index]
 
         self.move_and_collide(objects)
 
+        # KOLIZJA Z GRACZEM
         if self.rect.colliderect(player.rect):
+            if player.invincible:
+                return
+
             if player.rect.bottom <= self.rect.top + 20 and player.y_vel > 0:
                 self.alive = False
                 player.score += 3
@@ -399,12 +425,15 @@ class Boo(Enemy):
                 player.jump = True
             else:
                 player.lives -= 1
+                player.invincible = True
+                player.invincibility_timer = pygame.time.get_ticks()
                 if player.lives <= 0:
                     player.reset()
                     player.lives = player.max_lives
                 else:
                     player.rect.x -= 50
                     player.y_vel = -10
+
 
     def fly_left_right(self):
         self.rect.x += self.speed
@@ -639,15 +668,15 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
 def restart_game():
     global CURRENT_DIFFICULTY
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
-    player = Player(2000, FLOOR_LEVEL, 50, 50, lives)
+    player = Player(3000, FLOOR_LEVEL, 50, 50, lives)
     
     speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
-        Goomba(1000, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 450),  
-        Goomba(1750, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 400),  
+        Goomba(1000, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 450),
+        Goomba(1750, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 400),
         Boo(2600, FLOOR_LEVEL-60, 45, 45, int(3 * speed_mult), 450),
-        Boo(3200, FLOOR_LEVEL-75, 45, 45, int(3 * speed_mult), 200),
-        Goomba(4000, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 400),  
+        Boo(3500, FLOOR_LEVEL-75, 45, 45, int(3 * speed_mult), 800),
+        Goomba(4000, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 400),
     ]
     return player, enemies
 
