@@ -14,22 +14,29 @@ WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Mario")
 
 # TŁO
-BACKGROUND = pygame.transform.scale(pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\level_1.png"),(7000,600))
+BACKGROUND = pygame.transform.scale(pygame.image.load("resources\\graphics\\level_1.png"),(7000,600))
 
 # MUZYKA
-# pygame.mixer.music.load("resources\\music\\main_theme.ogg")
-# pygame.mixer.music.play(-1)
-# pygame.mixer.music.set_volume(0.5)
+pygame.mixer.music.load("resources\\music\\main_theme.ogg")
+pygame.mixer.music.play(-1)
+pygame.mixer.music.set_volume(0.5)
+
+JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
+JUMP_SOUND.set_volume(0.5)
+
+SPRITE_SHEET = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
 
 FLOOR_LEVEL = 536
 
 FPS = 60
+
 PLAYER_VEL = 10  # DOCELOWO 5 DLA TESTOW JEST WIECEJ
+
 GAME_ACTIVE = False  # Zmienione na False - gra zaczyna się od menu
 GAME_PAUSED = False
 GAME_FINISHED = False
 GAME_STARTED = False  # Nowa zmienna do śledzenia czy gra została rozpoczęta
-TIME=100
+TIME = 100
 
 # Poziomy trudności
 DIFFICULTY_SETTINGS = {
@@ -52,16 +59,38 @@ DIFFICULTY_SETTINGS = {
 
 CURRENT_DIFFICULTY = "ŚREDNI"
 
+def get_image_from_sheet(x, y, width, height, scale=1):
+    image = pygame.Surface((width, height), pygame.SRCALPHA)
+    image.blit(SPRITE_SHEET, (0, 0), pygame.Rect(x, y, width, height))
+    if scale != 1:
+        image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
+    return image
+
 class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5  # DO USTALENIA
+
+    SMALL_SPRITES = [
+        get_image_from_sheet(178, 32, 12, 16, 3),  # MARIO STOI W MIEJSCU
+        get_image_from_sheet(80, 32, 15, 16, 3),  # MARIO CHÓD [1]
+        get_image_from_sheet(96, 32, 16, 16, 3),  # MARIO CHÓD [2]
+        get_image_from_sheet(112, 32, 16, 16, 3),  # MARIO CHÓD [3]
+        get_image_from_sheet(144, 32, 16, 16, 3)  # MARIO SKACZE
+    ]
+
+    BIG_SPRITES = [
+
+    ]
+
 
     def __init__(self, x, y, width, height, lives):
         super().__init__()
         self.rect = pygame.Rect(x, y-height, width, height)
         self.x_vel = 0
         self.y_vel = 0
-        self.direction = "left"
         self.jump = False
+        self.sprites = self.SMALL_SPRITES
+        self.direction = "right"
+        self.animation_count = 0
         self.lives = lives
         self.max_lives = lives  # Zapamiętaj maksymalną liczbę żyć
         self.score = 0
@@ -70,6 +99,7 @@ class Player(pygame.sprite.Sprite):
         if not self.jump:
             self.y_vel = -self.GRAVITY * 16 
             self.jump = True
+            JUMP_SOUND.play()
 
     def check_if_airborne(self, objects):
         rect_below = self.rect.move(0, 1)
@@ -85,13 +115,15 @@ class Player(pygame.sprite.Sprite):
 
     def move_left(self, vel):
         self.x_vel = -vel
+        if self.direction != "left":
+            self.direction = "left"
+            self.animation_count = 0
 
     def move_right(self, vel):
         self.x_vel = vel
-
-    def move(self, dx, dy):
-        self.rect.x += dx
-        self.rect.y += dy
+        if self.direction != "right":
+            self.direction = "right"
+            self.animation_count = 0
 
     def loop(self, objects):
         self.check_if_airborne(objects)
@@ -107,6 +139,9 @@ class Player(pygame.sprite.Sprite):
                 self.y_vel = 0
                 self.jump = False
 
+        self.update_sprite()
+        self.update()
+
         self.y_vel += self.GRAVITY 
         self.rect.y += self.y_vel
 
@@ -118,10 +153,39 @@ class Player(pygame.sprite.Sprite):
         self.lives = self.max_lives
         self.score = 0
 
+    def update_sprite(self):
+        # Animacja skoku
+        if self.y_vel != 0:
+            self.sprite_index = 4  # skacze
+
+        # Animacja biegu
+        elif self.x_vel != 0:
+            self.animation_counter += 1
+            if self.animation_counter >= 6:  # zmiana co 10 klatek
+                self.animation_counter = 0
+                self.sprite_index += 1
+                if self.sprite_index > 3:
+                    self.sprite_index = 1  # pętla 1-3 (bieganie)
+
+        # Postać stoi
+        else:
+            self.sprite_index = 0
+            self.animation_counter = 0
+
+        # Ustaw sprite zgodnie z kierunkiem
+        if self.direction == "right":
+            self.sprite = self.sprites[self.sprite_index]
+        elif self.direction == "left":
+            self.sprite = pygame.transform.flip(self.sprites[self.sprite_index], True, False)
+
+    def update(self):
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x,self.rect.y))
+
     def draw(self, scroll_x):
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
-        pygame.draw.rect(WINDOW, "red", adjusted_rect)
+
+        WINDOW.blit(self.sprite,(adjusted_rect.x,adjusted_rect.y))
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -378,7 +442,7 @@ def draw_main_menu(selected_option):
     title_rect = title_text.get_rect(center=(WIDTH//2,30))
     WINDOW.blit(title_text, title_rect)
 
-    mario_start=pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioStart.png").convert_alpha()
+    mario_start=pygame.image.load("resources\\graphics\\marioStart.png").convert_alpha()
     mario_rect=mario_start.get_rect(center=(WIDTH//2,140))
     WINDOW.blit(mario_start,mario_rect)
 
@@ -475,7 +539,7 @@ def draw_end_screen(player, start_time, end_time):
     instruction2_rect = instruction2.get_rect(topleft=(50, HEIGHT//2 + 130))
     WINDOW.blit(instruction2, instruction2_rect)
 
-    mario_end=pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioEnd.png").convert_alpha()
+    mario_end=pygame.image.load("resources\\graphics\\marioEnd.png").convert_alpha()
     mario_rect=mario_end.get_rect(midbottom=(600,HEIGHT+15))
     WINDOW.blit(mario_end,mario_rect)
 
@@ -504,7 +568,7 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
     difficulty_display = FONT.render(f"Poziom: {CURRENT_DIFFICULTY}", True, "white")
     WINDOW.blit(difficulty_display, (10, 80))
 
-    live_img = pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioLive.png")
+    live_img = pygame.image.load("resources\\graphics\\marioLive.png")
     lives = []
     for i in range(player.lives):
         lives.append(live_img.get_rect(center=(750-i*50, 50)))
@@ -526,7 +590,7 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
 def restart_game():
     global CURRENT_DIFFICULTY
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
-    player = Player(6400, FLOOR_LEVEL, 50, 50, lives)
+    player = Player(400, FLOOR_LEVEL, 50, 50, lives)
     
     speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
