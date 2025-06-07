@@ -17,10 +17,14 @@ pygame.display.set_caption("Mario")
 BACKGROUND = pygame.transform.scale(pygame.image.load("resources\\graphics\\level_1.png"),(7000,600))
 
 # MUZYKA
-# pygame.mixer.music.load("resources\\music\\main_theme.ogg")
-# pygame.mixer.music.play(-1)
-# pygame.mixer.music.set_volume(0.5)
+pygame.mixer.music.load("resources\\music\\main_theme.ogg")
+pygame.mixer.music.play(-1)
+pygame.mixer.music.set_volume(0.5)
 
+JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
+JUMP_SOUND.set_volume(0.5)
+
+SPRITE_SHEET = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
 
 FLOOR_LEVEL = 536
 
@@ -29,18 +33,20 @@ PLAYER_VEL = 10  # DOCELOWO 5 DLA TESTOW JEST WIECEJ
 GAME_ACTIVE = True
 GAME_PAUSED = False
 GAME_FINISHED = False
-TIME=100
+TIME = 100
 
 class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5  # DO USTALENIA
 
-    def __init__(self, x, y, width, height,lives):
+    def __init__(self, x, y, width, height, sprites, lives):
         super().__init__()
         self.rect = pygame.Rect(x, y-height, width, height)
         self.x_vel = 0
         self.y_vel = 0
-        self.direction = "left"
         self.jump = False
+        self.sprites = sprites
+        self.direction = "right"
+        self.animation_count = 0
         self.lives=lives
         self.score=0  # Zmienione z 1 na 0 dla lepszej logiki
 
@@ -48,18 +54,18 @@ class Player(pygame.sprite.Sprite):
         if not self.jump:
             self.y_vel = -self.GRAVITY * 16
             self.jump = True
+            JUMP_SOUND.play()
 
     def check_if_airborne(self, objects):
-        # Tworzymy prostokąt o 1 piksel niżej od gracza
+        # PROSTOKĄT POD GRACZEM SPRAWDZA CZY WYLĄDOWAŁ
         rect_below = self.rect.move(0, 1)
 
-        # Sprawdzamy, czy coś jest bezpośrednio pod graczem
         for obj in objects:
             if rect_below.colliderect(obj.rect):
-                self.jump = False  # Gracz na ziemi
+                self.jump = False
                 return
 
-        self.jump = True  # Gracz w powietrzu
+        self.jump = True
 
     def landed(self):
         self.y_vel = 0
@@ -68,12 +74,16 @@ class Player(pygame.sprite.Sprite):
     def move_left(self, vel):
         self.x_vel = -vel
 
+        if self.direction != "left":
+            self.direction = "left"
+            self.animation_count = 0
+
     def move_right(self, vel):
         self.x_vel = vel
 
-    def move(self, dx, dy):
-        self.rect.x += dx
-        self.rect.y += dy
+        if self.direction != "right":
+            self.direction = "right"
+            self.animation_count = 0
 
     # PĘTLA GRACZA
     def loop(self,objects):
@@ -90,6 +100,9 @@ class Player(pygame.sprite.Sprite):
                 self.y_vel = 0
                 self.jump = False
 
+        self.update_sprite()
+        self.update()
+
         self.y_vel += self.GRAVITY  # GRAWITACJA
         self.rect.y += self.y_vel
 
@@ -99,12 +112,41 @@ class Player(pygame.sprite.Sprite):
         self.y_vel = 0
         self.jump = False
         self.lives = 3 
-        self.score = 0  # Reset wyniku
+        self.score = 0  # RESET WYNIKU
+
+    def update_sprite(self):
+        # Animacja skoku
+        if self.y_vel != 0:
+            self.sprite_index = 4  # skacze
+
+        # Animacja biegu
+        elif self.x_vel != 0:
+            self.animation_counter += 1
+            if self.animation_counter >= 6:  # zmiana co 10 klatek
+                self.animation_counter = 0
+                self.sprite_index += 1
+                if self.sprite_index > 3:
+                    self.sprite_index = 1  # pętla 1-3 (bieganie)
+
+        # Postać stoi
+        else:
+            self.sprite_index = 0
+            self.animation_counter = 0
+
+        # Ustaw sprite zgodnie z kierunkiem
+        if self.direction == "right":
+            self.sprite = self.sprites[self.sprite_index]
+        elif self.direction == "left":
+            self.sprite = pygame.transform.flip(self.sprites[self.sprite_index], True, False)
+
+    def update(self):
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
 
     def draw(self, scroll_x):
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
-        pygame.draw.rect(WINDOW, "red", adjusted_rect)
+
+        WINDOW.blit(self.sprite, (adjusted_rect.x, adjusted_rect.y))
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -120,7 +162,7 @@ class Enemy(pygame.sprite.Sprite):
     def apply_gravity(self):
         self.y_vel += self.GRAVITY
         if self.y_vel > 10:
-            self.y_vel = 10  # terminal velocity
+            self.y_vel = 10
 
     def move_and_collide(self, objects):
         # RUCH W POZIOMIE
@@ -253,7 +295,7 @@ class Boo(Enemy):
             (self.start_x, self.start_y)  
         ]
         
-    def update(self, player):
+    def update(self, player,objects):
         if not self.alive:
             return
 
@@ -417,7 +459,7 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0):
     WINDOW.blit(text,(10,10))
 
     # Życia
-    live_img=pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioLive.png")
+    live_img=pygame.image.load("resources\\graphics\\marioLive.png")
     lives=[]
     for i in range(player.lives):
         lives.append(live_img.get_rect(center=(750-i*50,50)))
@@ -436,12 +478,16 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0):
 
     pygame.display.update()
 
-def load_sprite_sheets(dir):
-    pass
+def get_image_from_sheet(x, y, width, height, scale=1):
+    image = pygame.Surface((width, height), pygame.SRCALPHA)
+    image.blit(SPRITE_SHEET, (0, 0), pygame.Rect(x, y, width, height))
+    if scale != 1:
+        image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
+    return image
 
-def restart_game():
+def restart_game(sprites):
     # Funkcja resetująca grę do stanu początkowego
-    player = Player(400, FLOOR_LEVEL, 50, 50, 3)
+    player = Player(400, FLOOR_LEVEL, 50, 50, sprites, 3)
     enemies = [
         Goomba(1000, FLOOR_LEVEL, 45, 45, 3, 450),  
         Goomba(1750, FLOOR_LEVEL, 45, 45, 3, 400),  
@@ -457,7 +503,17 @@ def main():
     clock = pygame.time.Clock()
     start_time = pygame.time.get_ticks()
 
-    player, enemies = restart_game()
+    small_mario_imgs = [
+        get_image_from_sheet(178, 32, 12, 16, 3),  # MARIO STOI W MIEJSCU
+        get_image_from_sheet(80, 32, 15, 16, 3),  # MARIO CHÓD [1]
+        get_image_from_sheet(96, 32, 16, 16, 3),  # MARIO CHÓD [2]
+        get_image_from_sheet(112, 32, 16, 16, 3),  # MARIO CHÓD [3]
+        get_image_from_sheet(144, 32, 16, 16, 3)  # MARIO SKACZE
+    ]
+
+    big_mario_imgs = []
+
+    player, enemies = restart_game(small_mario_imgs)
 
     floor1 = Object(0, FLOOR_LEVEL+5, 2279, 5)
     floor2 = Object(2345, FLOOR_LEVEL+5, 495, 5)
@@ -506,7 +562,15 @@ def main():
 
     winning_gate=Object(6715,FLOOR_LEVEL,20,70,"brown",True)
     
-    objects = [floor1, floor2, floor3, floor4,  pipe1,  pipe2,pipe3,pipe4,pipe5,pipe6,stairs1,stairs2,stairs3,stairs4,stairs5,stairs6,stairs7,stairs8,stairs9,stairs10,stairs11,stairs12,stairs13,stairs14,stairs15,stairs16,stairs17,stairs18,stairs19,stairs20,stairs21,stairs22,stairs23,stairs24,stairs25,stairs26,stairs27,winning_gate] 
+    objects = [
+        floor1, floor2, floor3, floor4,
+        pipe1, pipe2,pipe3,pipe4,pipe5,pipe6,
+        stairs1,stairs2,stairs3,stairs4,stairs5,stairs6,stairs7,
+        stairs8,stairs9,stairs10,stairs11,stairs12,stairs13,stairs14,
+        stairs15,stairs16,stairs17,stairs18,stairs19,stairs20,stairs21,
+        stairs22,stairs23,stairs24,stairs25,stairs26,stairs27,
+        winning_gate
+    ]
 
     # GŁÓWNA PĘTLA GRY
     while run:
@@ -528,7 +592,7 @@ def main():
                 
                 # Restart 
                 if event.key == pygame.K_r and (GAME_PAUSED or GAME_FINISHED):
-                    player, enemies = restart_game()
+                    player, enemies = restart_game(small_mario_imgs)
                     GAME_PAUSED = False
                     GAME_FINISHED = False
                     start_time = pygame.time.get_ticks()  # Reset czasu
