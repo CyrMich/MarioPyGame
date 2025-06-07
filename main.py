@@ -19,11 +19,31 @@ BACKGROUND = pygame.transform.scale(pygame.image.load("resources\\graphics\\leve
 
 # MUZYKA
 pygame.mixer.music.load("resources\\music\\main_theme.ogg")
+pygame.mixer.music.play(-1)
+pygame.mixer.music.set_volume(0.5)
+
+# KOD DO ODTWARZANIA DZWIEKOW | DO USUNIECIA PRZED ODDANIEM
+# pygame.mixer.music.load("resources\\sound\\small_jump.ogg")
 # pygame.mixer.music.play(-1)
 # pygame.mixer.music.set_volume(0.5)
 
-JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
-JUMP_SOUND.set_volume(0.5)
+WORLD_CLEAR = pygame.mixer.Sound("resources\\music\\world_clear.wav")
+WORLD_CLEAR.set_volume(0.5)
+
+OUT_OF_TIME_SOUND = pygame.mixer.Sound("resources\\music\\out_of_time.wav")
+OUT_OF_TIME_SOUND.set_volume(0.5)
+
+SMALL_JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
+SMALL_JUMP_SOUND.set_volume(0.5)
+
+BIG_JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\big_jump.ogg")
+BIG_JUMP_SOUND.set_volume(0.5)
+
+GAME_OVER_SOUND = pygame.mixer.Sound("resources\\music\\game_over.ogg")
+GAME_OVER_SOUND.set_volume(0.5)
+
+DEATH_SOUND = pygame.mixer.Sound("resources\\music\\death.wav")
+DEATH_SOUND.set_volume(0.5)
 
 SPRITE_SHEET_MARIO = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
 SPRITE_SHEET_ENEMIES = pygame.image.load("resources\\graphics\\smb_enemies_sheet.png").convert_alpha()
@@ -94,6 +114,7 @@ class Player(pygame.sprite.Sprite):
         self.x_vel = 0
         self.y_vel = 0
         self.jump = False
+        self.size = "big"
         self.sprites = self.BIG_SPRITES
         self.direction = "right"
         self.animation_count = 0
@@ -102,13 +123,25 @@ class Player(pygame.sprite.Sprite):
         self.score = 0
         self.invincible = False
         self.invincible_timer = 0
-        self.invincibility_duration = 3000
+        self.invincibility_duration = 2500
+
+    def to_big(self):
+        self.size = "big"
+        self.sprites = self.BIG_SPRITES
+
+    def to_small(self):
+        self.size = "small"
+        self.sprites = self.SMALL_SPRITES
 
     def do_jump(self):
         if not self.jump:
             self.y_vel = -self.GRAVITY * 16 
             self.jump = True
-            JUMP_SOUND.play()
+
+            if self.size == "small":
+                SMALL_JUMP_SOUND.play()
+            elif self.size == "big":
+                BIG_JUMP_SOUND.play()
 
     def check_if_airborne(self, objects):
         rect_below = self.rect.move(0, 1)
@@ -339,12 +372,19 @@ class Goomba(Enemy):
                 player.score += 2
                 player.y_vel = -15
                 player.jump = True
+
+            elif player.size == "big":
+                player.to_small()
+                player.invincible = True
+                player.invincibility_timer = pygame.time.get_ticks()
+
             else:
                 player.lives -= 1
                 player.invincible = True
                 player.invincibility_timer = pygame.time.get_ticks()
 
                 if player.lives <= 0:
+                    DEATH_SOUND.play()
                     player.reset()
                     player.lives = player.max_lives
                 else:
@@ -423,11 +463,18 @@ class Boo(Enemy):
                 player.score += 3
                 player.y_vel = -15
                 player.jump = True
+
+            elif player.size == "big":
+                player.to_small()
+                player.invincible = True
+                player.invincibility_timer = pygame.time.get_ticks()
+
             else:
                 player.lives -= 1
                 player.invincible = True
                 player.invincibility_timer = pygame.time.get_ticks()
                 if player.lives <= 0:
+                    DEATH_SOUND.play()
                     player.reset()
                     player.lives = player.max_lives
                 else:
@@ -668,7 +715,7 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
 def restart_game():
     global CURRENT_DIFFICULTY
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
-    player = Player(3000, FLOOR_LEVEL, 50, 50, lives)
+    player = Player(500, FLOOR_LEVEL, 50, 50, lives)
     
     speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
