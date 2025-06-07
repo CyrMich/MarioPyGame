@@ -18,8 +18,8 @@ BACKGROUND = pygame.transform.scale(pygame.image.load("resources\\graphics\\leve
 
 # MUZYKA
 pygame.mixer.music.load("resources\\music\\main_theme.ogg")
-pygame.mixer.music.play(-1)
-pygame.mixer.music.set_volume(0.5)
+# pygame.mixer.music.play(-1)
+# pygame.mixer.music.set_volume(0.5)
 
 JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
 JUMP_SOUND.set_volume(0.5)
@@ -54,7 +54,7 @@ class Player(pygame.sprite.Sprite):
         if not self.jump:
             self.y_vel = -self.GRAVITY * 16
             self.jump = True
-            JUMP_SOUND.play()
+            # JUMP_SOUND.play()
 
     def check_if_airborne(self, objects):
         # PROSTOKĄT POD GRACZEM SPRAWDZA CZY WYLĄDOWAŁ
@@ -497,6 +497,7 @@ def restart_game(sprites):
     ]
     return player, enemies
 
+
 def main():
     global GAME_PAUSED, GAME_FINISHED
     run = True
@@ -576,14 +577,14 @@ def main():
     while run:
         clock.tick(FPS)
 
+        # Sprawdzenie czy gracz dotarł do strefy końcowej
+        if player.rect.x > 6680 and player.rect.x < 6770 and not GAME_FINISHED:
+            GAME_FINISHED = True
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
                 break
-                
-            # Sprawdzenie czy gracz dotarł do strefy końcowej
-            if player.rect.x > 6680 and player.rect.x < 6770 and not GAME_FINISHED:
-                GAME_FINISHED = True
                 
             if event.type == pygame.KEYDOWN:
                 # Obsługa pauzy (tylko gdy gra nie jest skończona)
