@@ -30,7 +30,7 @@ FLOOR_LEVEL = 536
 
 FPS = 60
 
-PLAYER_VEL = 10  # DOCELOWO 5 DLA TESTOW JEST WIECEJ
+PLAYER_VEL = 5  # DOCELOWO 5 DLA TESTOW JEST WIECEJ
 
 GAME_ACTIVE = False  # Zmienione na False - gra zaczyna się od menu
 GAME_PAUSED = False
@@ -70,15 +70,19 @@ class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5  # DO USTALENIA
 
     SMALL_SPRITES = [
-        get_image_from_sheet(178, 32, 12, 16, 3),  # MARIO STOI W MIEJSCU
-        get_image_from_sheet(80, 32, 15, 16, 3),  # MARIO CHÓD [1]
-        get_image_from_sheet(96, 32, 16, 16, 3),  # MARIO CHÓD [2]
-        get_image_from_sheet(112, 32, 16, 16, 3),  # MARIO CHÓD [3]
-        get_image_from_sheet(144, 32, 16, 16, 3)  # MARIO SKACZE
+        get_image_from_sheet(178, 32, 12, 16, 2),  # MARIO STOI W MIEJSCU
+        get_image_from_sheet(80,  32, 15, 16, 2),  # MARIO CHÓD [1]
+        get_image_from_sheet(96,  32, 16, 16, 2),  # MARIO CHÓD [2]
+        get_image_from_sheet(112, 32, 16, 16, 2),  # MARIO CHÓD [3]
+        get_image_from_sheet(144, 32, 16, 16, 2)  # MARIO PODSKOK
     ]
 
     BIG_SPRITES = [
-
+        get_image_from_sheet(176,0,16,32,2), # MARIO STOI W MIEJSCU
+        get_image_from_sheet(81, 0,16,32,2), # MARIO CHÓD [1]
+        get_image_from_sheet(97, 0,15,32,2), # MARIO CHÓD [2]
+        get_image_from_sheet(113,0,15,32,2), # MARIO CHÓD [3]
+        get_image_from_sheet(144,0,16,32,2) # MARIO PODSKOK
     ]
 
 
