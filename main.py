@@ -27,28 +27,6 @@ pygame.mixer.music.set_volume(0.5)
 # pygame.mixer.music.play(-1)
 # pygame.mixer.music.set_volume(0.5)
 
-WORLD_CLEAR = pygame.mixer.Sound("resources\\music\\world_clear.wav")
-WORLD_CLEAR.set_volume(0.5)
-
-OUT_OF_TIME_SOUND = pygame.mixer.Sound("resources\\music\\out_of_time.wav")
-OUT_OF_TIME_SOUND.set_volume(0.5)
-
-SMALL_JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
-SMALL_JUMP_SOUND.set_volume(0.5)
-
-BIG_JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\big_jump.ogg")
-BIG_JUMP_SOUND.set_volume(0.5)
-
-GAME_OVER_SOUND = pygame.mixer.Sound("resources\\music\\game_over.ogg")
-GAME_OVER_SOUND.set_volume(0.5)
-
-DEATH_SOUND = pygame.mixer.Sound("resources\\music\\death.wav")
-DEATH_SOUND.set_volume(0.5)
-
-SPRITE_SHEET_MARIO = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
-SPRITE_SHEET_ENEMIES = pygame.image.load("resources\\graphics\\smb_enemies_sheet.png").convert_alpha()
-SPRITE_SHEET_TILE_SET = pygame.image.load("resources\\graphics\\tile_set.png").convert_alpha()
-
 FLOOR_LEVEL = 536
 
 FPS = 60
@@ -81,18 +59,6 @@ DIFFICULTY_SETTINGS = {
 }
 
 CURRENT_DIFFICULTY = "ŚREDNI"
-
-global enemies
-player=None
-enemies=[]
-objects=[]
-
-def get_image_from_sheet(sprite_sheet, x, y, width, height, scale=1):
-    image = pygame.Surface((width, height), pygame.SRCALPHA)
-    image.blit(sprite_sheet, (0, 0), pygame.Rect(x, y, width, height))
-    if scale != 1:
-        image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
-    return image
 
 class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5  # DO USTALENIA
@@ -207,6 +173,32 @@ class Player(pygame.sprite.Sprite):
         self.jump = False
         self.lives = self.max_lives
         self.to_big()
+
+    def update_sprite(self):
+        # ANIMACJA SKOKU
+        if self.y_vel != 0:
+            self.sprite_index = 4
+
+        # ANIMACJA BIEGU
+        elif self.x_vel != 0:
+            self.animation_counter += 1
+            if self.animation_counter >= 6:
+                self.animation_counter = 0
+                self.sprite_index += 1
+                if self.sprite_index > 3:
+                    self.sprite_index = 1
+
+        else:
+            self.sprite_index = 0
+            self.animation_counter = 0
+
+        if self.direction == "right":
+            self.sprite = self.sprites[self.sprite_index]
+        elif self.direction == "left":
+            self.sprite = pygame.transform.flip(self.sprites[self.sprite_index], True, False)
+
+    def update(self):
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x,self.rect.y))
 
     def update_sprite(self):
         # ANIMACJA SKOKU
@@ -371,8 +363,7 @@ class Goomba(Enemy):
 
         self.apply_gravity()
         self.move_and_collide(objects)
-        reset_powerups(objects)
-        # KOLIZJA Z GRACZEM
+
         if self.rect.colliderect(player.rect):
             if player.invincible:
                 return
@@ -394,8 +385,6 @@ class Goomba(Enemy):
                 player.invincibility_timer = pygame.time.get_ticks()
 
                 if player.lives <= 0:
-                    global enemies
-                    DEATH_SOUND.play()
                     player.reset()
                     player.lives = player.max_lives
                     player,enemies=restart_game()
@@ -440,11 +429,6 @@ class Boo(Enemy):
 
     def update(self, player, objects):
         if not self.alive:
-            self.sprite = self.SPRITES[2]
-            self.death_timer += 1
-            reset_powerups(objects)
-            if self.death_timer >= self.death_duration:
-                self.to_remove = True
             return
 
         self.fly_left_right()
@@ -487,8 +471,6 @@ class Boo(Enemy):
                 player.invincible = True
                 player.invincibility_timer = pygame.time.get_ticks()
                 if player.lives <= 0:
-                    DEATH_SOUND.play()
-                    global enemies
                     player.reset()
                     player,enemies=restart_game()
                     player.lives = player.max_lives
@@ -512,42 +494,8 @@ class Boo(Enemy):
         if self.alive:
             adjusted = self.rect.copy()
             adjusted.x -= scroll_x
-            WINDOW.blit(self.sprite, (adjusted.x, adjusted.y))
+            pygame.draw.rect(WINDOW, "white", adjusted)
 
-class PowerUp(Enemy):
-    def __init__(self, x, y, width=32, height=32):
-        super().__init__(x, y, width, height)
-        self.alive = True
-        self.to_remove = False
-    
-    def apply_gravity(self):
-        self.y_vel += self.GRAVITY
-        if self.y_vel > 10:
-            self.y_vel = 10
-
-    def update(self, player, objects):
-        if not self.alive:
-            return
-        if self.rect.colliderect(player.rect):
-            player.to_big()
-            self.alive = False
-            self.to_remove = True
-
-    def draw(self, scroll_x):
-        if self.alive:
-            adjusted = self.rect.copy()
-            adjusted.x -= scroll_x
-            power_up=get_image_from_sheet(SPRITE_SHEET_OBJECTS, 0, 16, 16, 16, 2)
-            power_up_surf=power_up.get_rect(topleft=(adjusted.x,adjusted.y))
-            WINDOW.blit(power_up,power_up_surf)
-
-    def is_off_screen(self, scroll_x):
-        return self.rect.right - scroll_x < 0
-
-def reset_powerups(objects):
-    for obj in objects:
-        if isinstance(obj, PowerUpBlock):
-            obj.reset()
 
 class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, color="green", visible=False):
@@ -747,8 +695,8 @@ def draw_end_screen(player, start_time, end_time):
     instruction2_rect = instruction2.get_rect(topleft=(40, HEIGHT//2 + 130))
     WINDOW.blit(instruction2, instruction2_rect)
 
-    mario_end=pygame.image.load("resources\\graphics\\marioEnd.png").convert_alpha()
-    mario_rect=mario_end.get_rect(midbottom=(620,HEIGHT+15))
+    mario_end=pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioEnd.png").convert_alpha()
+    mario_rect=mario_end.get_rect(midbottom=(600,HEIGHT+15))
     WINDOW.blit(mario_end,mario_rect)
 
 
@@ -798,11 +746,8 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
 def restart_game():
     global CURRENT_DIFFICULTY
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
-    player = Player(500, FLOOR_LEVEL, 50, 50, lives)
-    for obj in objects:
-        if isinstance(obj, PowerUpBlock):
-            obj.reset()
-            
+    player = Player(6400, FLOOR_LEVEL, 50, 50, lives)
+    
     speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
         Goomba(1000, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 450),
