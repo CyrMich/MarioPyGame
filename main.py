@@ -96,6 +96,7 @@ global enemies
 player=None
 enemies=[]
 objects=[]
+coins = []
 
 def get_image_from_sheet(sprite_sheet, x, y, width, height, scale=1):
     image = pygame.Surface((width, height), pygame.SRCALPHA)
@@ -344,9 +345,9 @@ class Goomba(Enemy):
         self.sprite_index = 0
         self.sprite = self.SPRITES[0]
         self.alive = True
-        self.to_remove = False  # do oznaczenia, że trzeba usunąć z listy
+        self.to_remove = False
         self.death_timer = 0
-        self.death_duration = 30  # liczba klatek po śmierci zanim zniknie
+        self.death_duration = 10
 
     def move_and_collide(self, objects):
         next_x = self.rect.x + self.speed
@@ -426,7 +427,6 @@ class Goomba(Enemy):
         adjusted = self.rect.copy()
         adjusted.x -= scroll_x
         WINDOW.blit(self.sprite, (adjusted.x, adjusted.y))
-
 
 
 class Boo(Enemy):
@@ -531,26 +531,45 @@ class Boo(Enemy):
             WINDOW.blit(self.sprite, (adjusted.x, adjusted.y))
 
 class PowerUp(Enemy):
+    SPRITES = [
+        get_image_from_sheet(SPRITE_SHEET_OBJECTS, 0, 16, 16, 15, 2),  # CAŁY
+        get_image_from_sheet(SPRITE_SHEET_OBJECTS, 0, 16, 16, 4, 2),   # 1/4
+        get_image_from_sheet(SPRITE_SHEET_OBJECTS, 0, 16, 16, 8, 2),   # 2/4
+        get_image_from_sheet(SPRITE_SHEET_OBJECTS, 0, 16, 16, 12, 2)   # 3/4
+    ]
+
+    EMERGE_DISTANCE = 16
+    EMERGE_SPEED = 1
+
     def __init__(self, x, y, width=32, height=32):
-        super().__init__(x, y, width, height)
+        super().__init__(x, y + height, width, height)  # startuje "pod" blokiem
         self.alive = True
         self.to_remove = False
-        self.x_vel = -2
-    
+        self.x_vel = 0
+        self.emerging = True
+        self.emerged_distance = 0
+        self.y_vel = 0
+
+    def emerge(self):
+        if self.emerged_distance < self.EMERGE_DISTANCE:
+            self.rect.y -= self.EMERGE_SPEED
+            self.emerged_distance += self.EMERGE_SPEED
+        else:
+            self.emerging = False
+            self.x_vel = -2
+
     def apply_gravity(self):
-        self.y_vel += self.GRAVITY
-        if self.y_vel > 10:
-            self.y_vel = 10
-
-        if self.rect.y > HEIGHT+50:
-            self.to_remove = True
-            self.alive = False
-
-        self.rect.y += self.y_vel
+        if not self.emerging:
+            self.y_vel += self.GRAVITY
+            if self.y_vel > 10:
+                self.y_vel = 10
+            self.rect.y += self.y_vel
+            if self.rect.y > HEIGHT + 50:
+                self.to_remove = True
+                self.alive = False
 
     def move(self, objects):
         self.rect.x += self.x_vel
-
         for obj in objects:
             if self.rect.colliderect(obj.rect):
                 if self.x_vel > 0:
@@ -561,6 +580,10 @@ class PowerUp(Enemy):
 
     def update(self, player, objects):
         if not self.alive:
+            return
+
+        if self.emerging:
+            self.emerge()
             return
 
         for obj in objects:
@@ -579,21 +602,52 @@ class PowerUp(Enemy):
         self.apply_gravity()
 
     def draw(self, scroll_x):
-        if self.alive:
-            adjusted = self.rect.copy()
-            adjusted.x -= scroll_x
-            power_up=get_image_from_sheet(SPRITE_SHEET_OBJECTS, 0, 16, 16, 16, 2)
-            power_up_surf=power_up.get_rect(topleft=(adjusted.x,adjusted.y))
-            WINDOW.blit(power_up,power_up_surf)
+        if not self.alive:
+            return
 
-    def is_off_screen(self, scroll_x):
-        return self.rect.right - scroll_x < 0
+        adjusted = self.rect.copy()
+        adjusted.x -= scroll_x
+
+        if self.emerging:
+            stage = min(len(self.SPRITES) - 1, self.emerged_distance // (self.EMERGE_DISTANCE // (len(self.SPRITES))))
+            sprite = self.SPRITES[stage]
+        else:
+            sprite = get_image_from_sheet(SPRITE_SHEET_OBJECTS, 0, 16, 16, 16, 2)
+
+        WINDOW.blit(sprite, adjusted)
+
 
 
 def reset_powerups(objects):
     for obj in objects:
         if isinstance(obj, PowerUpBlock):
             obj.reset()
+        if isinstance(obj, CoinBlock):
+            obj.reset()
+
+
+class Coin:
+    GRAVITY = 0.5
+    LIFETIME = 20
+
+    def __init__(self, x, y):
+        self.image = get_image_from_sheet(SPRITE_SHEET_TILE_SET, 386, 18, 10, 13, 2)
+        self.rect = self.image.get_rect(center=(x, y))
+        self.y_vel = -3
+        self.timer = 0
+        self.alive = True
+
+    def update(self):
+        self.timer += 1
+        if self.timer >= self.LIFETIME:
+            self.alive = False
+
+        self.rect.y += self.y_vel
+
+    def draw(self, scroll_x):
+        adjusted = self.rect.copy()
+        adjusted.x -= scroll_x
+        WINDOW.blit(self.image, adjusted)
 
 
 class Object(pygame.sprite.Sprite):
@@ -611,12 +665,13 @@ class Object(pygame.sprite.Sprite):
         adjusted_rect.x -= scroll_x
         pygame.draw.rect(WINDOW, self.color, adjusted_rect)
 
+
 class PowerUpBlock(Object):
     SPRITES = [
-        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 384, 0, 16, 16, 2),  # Jasny
-        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 400, 0, 16, 16, 2),  # Ciemniejszy
-        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 416, 0, 16, 16, 2),  # Ciemny
-        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 432, 0, 16, 16, 2),  # Zużyty
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 384, 0, 16, 16, 2),  # JASNY
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 400, 0, 16, 16, 2),  # CIEMNIEJSZY
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 416, 0, 16, 16, 2),  # CIEMNY
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 432, 0, 16, 16, 2),  # ZUŻYTY
     ]
 
     def __init__(self, x, y, width, height, color="green", visible=False, num_of_power_up=1):
@@ -662,6 +717,63 @@ class PowerUpBlock(Object):
             sprite = self.SPRITES[3]  # zużyty blok
 
         WINDOW.blit(sprite, adjusted_rect)
+
+
+class CoinBlock(Object):
+    SPRITES = [
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 384, 0, 16, 16, 2),  # JASNY
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 400, 0, 16, 16, 2),  # CIEMNIEJSZY
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 416, 0, 16, 16, 2),  # CIEMNY
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 432, 0, 16, 16, 2),  # ZUŻYTY
+    ]
+
+    def __init__(self, x, y, width, height, color="yellow", visible=False, num_of_coins=1):
+        super().__init__(x, y - height, width, height, color, visible)
+        self.num_of_coins = num_of_coins
+        self.initial_num_of_coins = num_of_coins
+        self.coins = []
+
+        # Animacja
+        self.animation_index = 0
+        self.animation_timer = 0
+        self.animation_speed = 18
+
+    def spawn_coin(self, player):
+        if self.num_of_coins > 0:
+            COIN_SOUND.play()
+            coins.append(Coin(self.rect.centerx, self.rect.y))
+            player.score += 50
+            self.num_of_coins -= 1
+
+    def reset(self):
+        self.num_of_coins = self.initial_num_of_coins
+        self.animation_index = 0
+        self.animation_timer = 0
+
+    def update_animation(self):
+        if self.num_of_coins > 0:
+            self.animation_timer += 1
+            if self.animation_timer >= self.animation_speed:
+                self.animation_timer = 0
+                self.animation_index = (self.animation_index + 1) % 3
+
+    def draw(self, scroll_x):
+        if not self.visible:
+            return
+
+        self.update_animation()
+
+        adjusted_rect = self.rect.copy()
+        adjusted_rect.x -= scroll_x
+
+        if self.num_of_coins > 0:
+            sprite = self.SPRITES[self.animation_index]
+        else:
+            sprite = self.SPRITES[3]
+
+        WINDOW.blit(sprite, adjusted_rect)
+
+
 
 class Bricks(Object):
     def __init__(self, x, y, width, height, color="green", visible=False):
@@ -712,6 +824,8 @@ def handle_vertical_collision(player, objects):
                 player.y_vel = 0
                 if isinstance(obj, PowerUpBlock):
                     obj.spawn_power_up()
+                if isinstance(obj, CoinBlock):
+                    obj.spawn_coin(player)
                 # obj.visible = True
 
 def handle_move(player):
@@ -845,6 +959,9 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
     for enemy in enemies:
         enemy.draw(scroll_x)
 
+    for coin in coins:
+        coin.draw(scroll_x)
+
     player.draw(scroll_x)
 
     text = FONT.render(f"{player.rect.x, player.rect.y}", True, "white")
@@ -937,7 +1054,7 @@ def initialize_level():
     obj_storage.add_object(PowerUpBlock(2164,FLOOR_LEVEL-150,32,32,"orange",True))
     obj_storage.add_object(Bricks(2196,FLOOR_LEVEL-150,32,32,"orange",True))
     obj_storage.add_object(Bricks(2228,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(Bricks(2260,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(CoinBlock(2260,FLOOR_LEVEL-150,32,32,"orange",True))
     return obj_storage.get_obj_list()
 
 
@@ -954,8 +1071,10 @@ def main():
     player = None
     global enemies
     global objects
+    global coins
     enemies = []
     objects = []
+    coins = []
 
     # GŁÓWNA PĘTLA GRY
     while run:
@@ -1046,6 +1165,12 @@ def main():
                     enemy.draw(scroll_x)
                     if enemy.rect.x + WIDTH < player.rect.x or enemy.rect.y - HEIGHT > player.rect.y:
                         enemies.remove(enemy)
+
+                for coin in coins[:]:
+                    coin.update()
+                    coin.draw(scroll_x)
+                    if not coin.alive:
+                        coins.remove(coin)
             
            
             draw(player, objects, enemies, GAME_PAUSED, GAME_FINISHED, start_time, end_time)
