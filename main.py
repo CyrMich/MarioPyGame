@@ -1,4 +1,5 @@
 import pygame
+import math
 
 # INICJALIZACJA CZCIONKI I PYGAME
 pygame.init()
@@ -14,22 +15,51 @@ WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Mario")
 
 # TŁO
-BACKGROUND = pygame.transform.scale(pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\level_1.png"),(7000,600))
+BACKGROUND = pygame.transform.scale(pygame.image.load("resources\\graphics\\level_1.png"),(7000,600))
 
 # MUZYKA
-# pygame.mixer.music.load("resources\\music\\main_theme.ogg")
+pygame.mixer.music.load("resources\\music\\main_theme.ogg")
+pygame.mixer.music.play(-1)
+pygame.mixer.music.set_volume(0.5)
+
+# KOD DO ODTWARZANIA DZWIEKOW | DO USUNIECIA PRZED ODDANIEM
+# pygame.mixer.music.load("resources\\sound\\small_jump.ogg")
 # pygame.mixer.music.play(-1)
 # pygame.mixer.music.set_volume(0.5)
+
+WORLD_CLEAR = pygame.mixer.Sound("resources\\music\\world_clear.wav")
+WORLD_CLEAR.set_volume(0.5)
+
+OUT_OF_TIME_SOUND = pygame.mixer.Sound("resources\\music\\out_of_time.wav")
+OUT_OF_TIME_SOUND.set_volume(0.5)
+
+SMALL_JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\small_jump.ogg")
+SMALL_JUMP_SOUND.set_volume(0.5)
+
+BIG_JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\big_jump.ogg")
+BIG_JUMP_SOUND.set_volume(0.5)
+
+GAME_OVER_SOUND = pygame.mixer.Sound("resources\\music\\game_over.ogg")
+GAME_OVER_SOUND.set_volume(0.5)
+
+DEATH_SOUND = pygame.mixer.Sound("resources\\music\\death.wav")
+DEATH_SOUND.set_volume(0.5)
+
+SPRITE_SHEET_MARIO = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
+SPRITE_SHEET_ENEMIES = pygame.image.load("resources\\graphics\\smb_enemies_sheet.png").convert_alpha()
+SPRITE_SHEET_TILE_SET = pygame.image.load("resources\\graphics\\tile_set.png").convert_alpha()
 
 FLOOR_LEVEL = 536
 
 FPS = 60
-PLAYER_VEL = 10  # DOCELOWO 5 DLA TESTOW JEST WIECEJ
+
+PLAYER_VEL = 5  # DOCELOWO 5 DLA TESTOW JEST WIECEJ
+
 GAME_ACTIVE = False  # Zmienione na False - gra zaczyna się od menu
 GAME_PAUSED = False
 GAME_FINISHED = False
 GAME_STARTED = False  # Nowa zmienna do śledzenia czy gra została rozpoczęta
-TIME=100
+TIME = 100
 
 # Poziomy trudności
 DIFFICULTY_SETTINGS = {
@@ -52,24 +82,72 @@ DIFFICULTY_SETTINGS = {
 
 CURRENT_DIFFICULTY = "ŚREDNI"
 
+global enemies
+player=None
+enemies=[]
+objects=[]
+
+def get_image_from_sheet(sprite_sheet, x, y, width, height, scale=1):
+    image = pygame.Surface((width, height), pygame.SRCALPHA)
+    image.blit(sprite_sheet, (0, 0), pygame.Rect(x, y, width, height))
+    if scale != 1:
+        image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
+    return image
+
 class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5  # DO USTALENIA
+
+    SMALL_SPRITES = [
+        get_image_from_sheet(SPRITE_SHEET_MARIO,178, 32, 12, 16, 2),  # MARIO STOI W MIEJSCU
+        get_image_from_sheet(SPRITE_SHEET_MARIO,80,  32, 15, 16, 2),  # MARIO CHÓD [1]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,96,  32, 16, 16, 2),  # MARIO CHÓD [2]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,112, 32, 16, 16, 2),  # MARIO CHÓD [3]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,144, 32, 16, 16, 2)  # MARIO PODSKOK
+    ]
+
+    BIG_SPRITES = [
+        get_image_from_sheet(SPRITE_SHEET_MARIO,176,0,16,32,2), # MARIO STOI W MIEJSCU
+        get_image_from_sheet(SPRITE_SHEET_MARIO,81, 0,16,32,2), # MARIO CHÓD [1]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,97, 0,15,32,2), # MARIO CHÓD [2]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,113,0,15,32,2), # MARIO CHÓD [3]
+        get_image_from_sheet(SPRITE_SHEET_MARIO,144,0,16,32,2) # MARIO PODSKOK
+    ]
+
 
     def __init__(self, x, y, width, height, lives):
         super().__init__()
         self.rect = pygame.Rect(x, y-height, width, height)
         self.x_vel = 0
         self.y_vel = 0
-        self.direction = "left"
         self.jump = False
+        self.size = "big"
+        self.sprites = self.BIG_SPRITES
+        self.direction = "right"
+        self.animation_count = 0
         self.lives = lives
-        self.max_lives = lives  # Zapamiętaj maksymalną liczbę żyć
+        self.max_lives = lives 
         self.score = 0
+        self.invincible = False
+        self.invincible_timer = 0
+        self.invincibility_duration = 2500
+
+    def to_big(self):
+        self.size = "big"
+        self.sprites = self.BIG_SPRITES
+
+    def to_small(self):
+        self.size = "small"
+        self.sprites = self.SMALL_SPRITES
 
     def do_jump(self):
         if not self.jump:
             self.y_vel = -self.GRAVITY * 16 
             self.jump = True
+
+            if self.size == "small":
+                SMALL_JUMP_SOUND.play()
+            elif self.size == "big":
+                BIG_JUMP_SOUND.play()
 
     def check_if_airborne(self, objects):
         rect_below = self.rect.move(0, 1)
@@ -85,27 +163,39 @@ class Player(pygame.sprite.Sprite):
 
     def move_left(self, vel):
         self.x_vel = -vel
+        if self.direction != "left":
+            self.direction = "left"
+            self.animation_count = 0
 
     def move_right(self, vel):
         self.x_vel = vel
-
-    def move(self, dx, dy):
-        self.rect.x += dx
-        self.rect.y += dy
+        if self.direction != "right":
+            self.direction = "right"
+            self.animation_count = 0
 
     def loop(self, objects):
         self.check_if_airborne(objects)
+
+        if self.invincible:
+            now = pygame.time.get_ticks()
+            if now - self.invincibility_timer > self.invincibility_duration:
+                self.invincible = False
 
         if self.rect.y > HEIGHT + 50:
             self.lives -= 1
             if self.lives <= 0:
                 self.reset()
                 self.lives = self.max_lives
+                global enemies
+                self,enemies = restart_game()
             else:
                 self.rect.x = 400
                 self.rect.y = 300
                 self.y_vel = 0
                 self.jump = False
+
+        self.update_sprite()
+        self.update()
 
         self.y_vel += self.GRAVITY 
         self.rect.y += self.y_vel
@@ -116,12 +206,39 @@ class Player(pygame.sprite.Sprite):
         self.y_vel = 0
         self.jump = False
         self.lives = self.max_lives
-        self.score = 0
+        self.to_big()
+
+    def update_sprite(self):
+        # ANIMACJA SKOKU
+        if self.y_vel != 0:
+            self.sprite_index = 4
+
+        # ANIMACJA BIEGU
+        elif self.x_vel != 0:
+            self.animation_counter += 1
+            if self.animation_counter >= 6:
+                self.animation_counter = 0
+                self.sprite_index += 1
+                if self.sprite_index > 3:
+                    self.sprite_index = 1
+
+        else:
+            self.sprite_index = 0
+            self.animation_counter = 0
+
+        if self.direction == "right":
+            self.sprite = self.sprites[self.sprite_index]
+        elif self.direction == "left":
+            self.sprite = pygame.transform.flip(self.sprites[self.sprite_index], True, False)
+
+    def update(self):
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x,self.rect.y))
 
     def draw(self, scroll_x):
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
-        pygame.draw.rect(WINDOW, "red", adjusted_rect)
+
+        WINDOW.blit(self.sprite,(adjusted_rect.x,adjusted_rect.y))
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -175,8 +292,10 @@ class Enemy(pygame.sprite.Sprite):
             else:
                 player.lives -= 1
                 if player.lives <= 0:
+                    global enemies
                     player.reset()
                     player.lives = player.max_lives
+                    player,enemies=restart_game()
                 else:
                     player.rect.x -= 50
                     player.y_vel = -10
@@ -192,17 +311,30 @@ class Enemy(pygame.sprite.Sprite):
 
 
 class Goomba(Enemy):
-    def __init__(self, x, y, width=45, height=45, speed=2, walking_range=200):
-        super().__init__(x, y-height, width, height, speed)
-        self.original_speed = abs(self.speed)  # Użyj prędkości z trudnością
+    SPRITES = [
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 0, 4, 16, 16, 2),   # CHÓD [1]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 30, 4, 16, 16, 2),  # CHÓD [2]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 61, 4, 16, 16, 2)   # UMIERA
+    ]
+
+    def __init__(self, x, y, width=32, height=32, speed=2, walking_range=200):
+        super().__init__(x, y - height, width, height, speed)
+        self.original_speed = abs(self.speed)
         self.walking_range = walking_range
         self.start_x = x
         self.left_boundary = x - walking_range // 2
         self.right_boundary = x + walking_range // 2
-    
+        self.animation_count = 0
+        self.sprite_index = 0
+        self.sprite = self.SPRITES[0]
+        self.alive = True
+        self.to_remove = False  # do oznaczenia, że trzeba usunąć z listy
+        self.death_timer = 0
+        self.death_duration = 30  # liczba klatek po śmierci zanim zniknie
+
     def move_and_collide(self, objects):
         next_x = self.rect.x + self.speed
-        
+
         if next_x <= self.left_boundary:
             self.rect.x = self.left_boundary
             self.speed = abs(self.speed)
@@ -219,98 +351,203 @@ class Goomba(Enemy):
                 else:
                     self.rect.left = obj.rect.right
                 self.speed *= -1
-    
+
     def update(self, player, objects):
         if not self.alive:
+            self.sprite = self.SPRITES[2]
+            self.death_timer += 1
+
+            if self.death_timer >= self.death_duration:
+                self.to_remove = True
             return
+
+        self.animation_count += 1
+        if self.animation_count >= 20:
+            self.animation_count = 0
+            self.sprite_index = 1 if self.sprite_index == 0 else 0
+        self.sprite = self.SPRITES[self.sprite_index]
+
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x,self.rect.y))
 
         self.apply_gravity()
         self.move_and_collide(objects)
-
+        reset_powerups(objects)
+        # KOLIZJA Z GRACZEM
         if self.rect.colliderect(player.rect):
-            if player.rect.bottom <= self.rect.top + 20:
+            if player.invincible:
+                return
+
+            if player.rect.bottom <= self.rect.top + 20 and player.y_vel > 0:
                 self.alive = False
                 player.score += 2
                 player.y_vel = -15
                 player.jump = True
+
+            elif player.size == "big":
+                player.to_small()
+                player.invincible = True
+                player.invincibility_timer = pygame.time.get_ticks()
+
             else:
                 player.lives -= 1
+                player.invincible = True
+                player.invincibility_timer = pygame.time.get_ticks()
+
                 if player.lives <= 0:
+                    global enemies
+                    DEATH_SOUND.play()
                     player.reset()
                     player.lives = player.max_lives
+                    player,enemies=restart_game()
                 else:
                     player.rect.x -= 50
                     player.y_vel = -10
 
+
+
     def draw(self, scroll_x):
-        if self.alive:
-            adjusted = self.rect.copy()
-            adjusted.x -= scroll_x
-            pygame.draw.rect(WINDOW, "brown", adjusted)
+        adjusted = self.rect.copy()
+        adjusted.x -= scroll_x
+        WINDOW.blit(self.sprite, (adjusted.x, adjusted.y))
+
 
 
 class Boo(Enemy):
-    def __init__(self, x, y, width=45, height=45, speed=2, patrol_width=200, patrol_height=100):
+    SPRITES = [
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 120, 184, 16, 16, 2),  # LOT W LEWO [1]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 150, 184, 16, 16, 2),  # LOT W LEWO [2]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 180, 184, 16, 16, 2),  # LOT W PRAWO [1]
+        get_image_from_sheet(SPRITE_SHEET_ENEMIES, 210, 184, 16, 16, 2)  # LOT W PRAWO [2]
+    ]
+
+    def __init__(self, x, y, width=32, height=32, speed=2, patrol_width=200):
         super().__init__(x, y, width, height, speed)
         self.start_x = x
         self.start_y = y
         self.patrol_width = patrol_width
-        self.patrol_height = patrol_height
         self.current_side = 0
-        self.original_speed = abs(self.speed)  # Użyj prędkości z trudnością
-    
-        self.corners = [
-            (self.start_x + self.patrol_width, self.start_y), 
-            (self.start_x + self.patrol_width, self.start_y + self.patrol_height),  
-            (self.start_x, self.start_y + self.patrol_height),  
-            (self.start_x, self.start_y)  
-        ]
-        
+        self.original_speed = abs(speed)
+        self.animation_count = 0
+        self.sprite_index = 0
+        self.sprite = self.SPRITES[0]
+        self.alive = True
+        self.to_remove = False
+        self.death_timer = 0
+        self.death_duration = 30
+        self.float_timer = 0
+        self.rect = self.sprite.get_rect(topleft=(x, y))
+
+
     def update(self, player, objects):
         if not self.alive:
+            self.sprite = self.SPRITES[2]
+            self.death_timer += 1
+            reset_powerups(objects)
+            if self.death_timer >= self.death_duration:
+                self.to_remove = True
             return
 
-        self.fly_in_rectangle()
+        self.fly_left_right()
 
+        self.float_timer += 0.1
+        self.rect.y = self.start_y + int(math.sin(self.float_timer) * 5)
+
+        self.animation_count += 1
+        if self.animation_count >= 10:
+            self.animation_count = 0
+
+            # Lot w lewo
+            if self.speed < 0:
+                self.sprite_index = 0 if self.sprite_index != 0 else 1
+            else:  # Lot w prawo
+                self.sprite_index = 2 if self.sprite_index != 2 else 3
+
+        self.sprite = self.SPRITES[self.sprite_index]
+
+        self.move_and_collide(objects)
+
+        # KOLIZJA Z GRACZEM
         if self.rect.colliderect(player.rect):
-            if player.rect.bottom <= self.rect.top + 20:
+            if player.invincible:
+                return
+
+            if player.rect.bottom <= self.rect.top + 20 and player.y_vel > 0:
                 self.alive = False
                 player.score += 3
                 player.y_vel = -15
                 player.jump = True
+
+            elif player.size == "big":
+                player.to_small()
+                player.invincible = True
+                player.invincibility_timer = pygame.time.get_ticks()
+
             else:
                 player.lives -= 1
+                player.invincible = True
+                player.invincibility_timer = pygame.time.get_ticks()
                 if player.lives <= 0:
+                    DEATH_SOUND.play()
+                    global enemies
                     player.reset()
+                    player,enemies=restart_game()
                     player.lives = player.max_lives
                 else:
                     player.rect.x -= 50
                     player.y_vel = -10
 
-    def fly_in_rectangle(self):
-        target_corner = self.corners[self.current_side]
-        
-        dx = target_corner[0] - self.rect.centerx
-        dy = target_corner[1] - self.rect.centery
-        
-        if abs(dx) < self.original_speed + 2 and abs(dy) < self.original_speed + 2:
-            self.current_side = (self.current_side + 1) % 4
-            self.rect.centerx = target_corner[0]
-            self.rect.centery = target_corner[1]
-        else:
-            distance = max(abs(dx), abs(dy))
-            if distance > 0:
-                move_x = (dx / distance) * self.original_speed
-                move_y = (dy / distance) * self.original_speed
-                self.rect.x += int(move_x)
-                self.rect.y += int(move_y)
+
+    def fly_left_right(self):
+        self.rect.x += self.speed
+
+        if self.rect.x <= self.start_x - self.patrol_width // 2:
+            self.rect.x = self.start_x - self.patrol_width // 2
+            self.speed *= -1
+
+        elif self.rect.x + self.rect.width >= self.start_x + self.patrol_width // 2:
+            self.rect.x = self.start_x + self.patrol_width // 2 - self.rect.width
+            self.speed *= -1
 
     def draw(self, scroll_x):
         if self.alive:
             adjusted = self.rect.copy()
             adjusted.x -= scroll_x
-            pygame.draw.rect(WINDOW, "white", adjusted)
+            WINDOW.blit(self.sprite, (adjusted.x, adjusted.y))
 
+class PowerUp(Enemy):
+    def __init__(self, x, y, width=32, height=32):
+        super().__init__(x, y, width, height)
+        self.alive = True
+        self.to_remove = False
+    
+    def apply_gravity(self):
+        self.y_vel += self.GRAVITY
+        if self.y_vel > 10:
+            self.y_vel = 10
+
+    def update(self, player, objects):
+        if not self.alive:
+            return
+        if self.rect.colliderect(player.rect):
+            player.to_big()
+            self.alive = False
+            self.to_remove = True
+
+    def draw(self, scroll_x):
+        if self.alive:
+            adjusted = self.rect.copy()
+            adjusted.x -= scroll_x
+            power_up=get_image_from_sheet(SPRITE_SHEET_OBJECTS, 0, 16, 16, 16, 2)
+            power_up_surf=power_up.get_rect(topleft=(adjusted.x,adjusted.y))
+            WINDOW.blit(power_up,power_up_surf)
+
+    def is_off_screen(self, scroll_x):
+        return self.rect.right - scroll_x < 0
+
+def reset_powerups(objects):
+    for obj in objects:
+        if isinstance(obj, PowerUpBlock):
+            obj.reset()
 
 class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, color="green", visible=False):
@@ -325,6 +562,39 @@ class Object(pygame.sprite.Sprite):
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
         pygame.draw.rect(WINDOW, self.color, adjusted_rect)
+
+class PowerUpBlock(Object):
+    def __init__(self, x, y, width, height, color="green", visible=False,num_of_power_up=1):
+        super().__init__(x, y - height, width, height, color, visible)
+        self.num_of_power_up=num_of_power_up
+        self.initial_num_of_power_up = num_of_power_up
+
+    def spawn_power_up(self):
+        if (self.num_of_power_up>0):
+            enemies.append(PowerUp(self.rect.x, self.rect.y - self.rect.height))
+            self.num_of_power_up-=1
+    def reset(self):
+        self.num_of_power_up = self.initial_num_of_power_up
+    def draw(self, scroll_x): 
+        if not self.visible:
+            return
+        adjusted_rect = self.rect.copy()
+        adjusted_rect.x -= scroll_x
+        sprite=get_image_from_sheet(SPRITE_SHEET_TILE_SET, 384, 0, 16, 16, 2)
+        sprite_surf=sprite.get_rect(topleft=(adjusted_rect.x,adjusted_rect.y))
+        WINDOW.blit(sprite,sprite_surf)
+class PlatformObject(Object):
+    def __init__(self, x, y, width, height, color="green", visible=False):
+        super().__init__(x, y - height, width, height, color, visible)
+
+    def draw(self, scroll_x): 
+        if not self.visible:
+            return
+        adjusted_rect = self.rect.copy()
+        adjusted_rect.x -= scroll_x
+        platform_obj=get_image_from_sheet(SPRITE_SHEET_TILE_SET, 48, 0, 16, 16, 2)
+        platform_obj_surf=platform_obj.get_rect(topleft=(adjusted_rect.x,adjusted_rect.y))
+        WINDOW.blit(platform_obj,platform_obj_surf)
 
 
 class Object_storage(Object):
@@ -352,14 +622,16 @@ def handle_horizontal_collision(player, objects):
 
 def handle_vertical_collision(player, objects):
     for obj in objects:
-        if player.rect.colliderect(obj.rect):
+        if player.rect.colliderect(obj.rect):               
             if player.y_vel > 0:
                 player.rect.bottom = obj.rect.top
                 player.landed()
             elif player.y_vel < 0:
                 player.rect.top = obj.rect.bottom
                 player.y_vel = 0
-
+                if isinstance(obj, PowerUpBlock):
+                    obj.spawn_power_up()
+                # obj.visible = True
 
 def handle_move(player):
     keys = pygame.key.get_pressed()
@@ -378,7 +650,7 @@ def draw_main_menu(selected_option):
     title_rect = title_text.get_rect(center=(WIDTH//2,30))
     WINDOW.blit(title_text, title_rect)
 
-    mario_start=pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioStart.png").convert_alpha()
+    mario_start=pygame.image.load("resources\\graphics\\marioStart.png").convert_alpha()
     mario_rect=mario_start.get_rect(center=(WIDTH//2,140))
     WINDOW.blit(mario_start,mario_rect)
 
@@ -440,7 +712,7 @@ def draw_end_screen(player, start_time, end_time):
     overlay.fill((0, 0, 0))
     WINDOW.blit(overlay, (0, 0))
     
-    time_bonus = int(50-(end_time-start_time)/1000)
+    time_bonus = max(0,int(50-(end_time-start_time)/1000))
     final_score = int((player.score*5+player.lives * 10+time_bonus)*DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["score_multiplier"])
     
     congrats_text = FONT.render("GRATULACJE!", True, "yellow")
@@ -448,35 +720,35 @@ def draw_end_screen(player, start_time, end_time):
     WINDOW.blit(congrats_text, congrats_rect)
     
     difficulty_text = FONT.render(f"Poziom: {CURRENT_DIFFICULTY}", True, "white")
-    difficulty_rect = difficulty_text.get_rect(topleft=(50, HEIGHT//2 - 70))
+    difficulty_rect = difficulty_text.get_rect(topleft=(40, HEIGHT//2 - 70))
     WINDOW.blit(difficulty_text, difficulty_rect)
     
     score_text = FONT.render(f"Punkty za przeciwników: {player.score*5}", True, "white")
-    score_rect = score_text.get_rect(topleft=(50, HEIGHT//2 - 40))
+    score_rect = score_text.get_rect(topleft=(40, HEIGHT//2 - 40))
     WINDOW.blit(score_text, score_rect)
     
     lives_text = FONT.render(f"Bonus za życia: {player.lives * 10}", True, "white")
-    lives_rect = lives_text.get_rect(topleft=(50, HEIGHT//2 - 10))
+    lives_rect = lives_text.get_rect(topleft=(40, HEIGHT//2 - 10))
     WINDOW.blit(lives_text, lives_rect)
     
     time_text = FONT.render(f"Bonus za czas: {time_bonus}", True, "white")
-    time_rect = time_text.get_rect(topleft=(50, HEIGHT//2 + 20))
+    time_rect = time_text.get_rect(topleft=(40, HEIGHT//2 + 20))
     WINDOW.blit(time_text, time_rect)
     
     final_text = FONT.render(f"Wynik: {final_score}", True, "gold")
-    final_rect = final_text.get_rect(topleft=(50, HEIGHT//2 + 60))
+    final_rect = final_text.get_rect(topleft=(40, HEIGHT//2 + 60))
     WINDOW.blit(final_text, final_rect)
     
     instruction1 = FONT.render("R - Restart gry", True, "white")
-    instruction1_rect = instruction1.get_rect(topleft=(50, HEIGHT//2 + 100))
+    instruction1_rect = instruction1.get_rect(topleft=(40, HEIGHT//2 + 100))
     WINDOW.blit(instruction1, instruction1_rect)
     
     instruction2 = FONT.render("M - Powrót do menu", True, "white")
-    instruction2_rect = instruction2.get_rect(topleft=(50, HEIGHT//2 + 130))
+    instruction2_rect = instruction2.get_rect(topleft=(40, HEIGHT//2 + 130))
     WINDOW.blit(instruction2, instruction2_rect)
 
-    mario_end=pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioEnd.png").convert_alpha()
-    mario_rect=mario_end.get_rect(midbottom=(600,HEIGHT+15))
+    mario_end=pygame.image.load("resources\\graphics\\marioEnd.png").convert_alpha()
+    mario_rect=mario_end.get_rect(midbottom=(620,HEIGHT+15))
     WINDOW.blit(mario_end,mario_rect)
 
 
@@ -504,7 +776,7 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
     difficulty_display = FONT.render(f"Poziom: {CURRENT_DIFFICULTY}", True, "white")
     WINDOW.blit(difficulty_display, (10, 80))
 
-    live_img = pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioLive.png")
+    live_img = pygame.image.load("resources\\graphics\\marioLive.png")
     lives = []
     for i in range(player.lives):
         lives.append(live_img.get_rect(center=(750-i*50, 50)))
@@ -526,15 +798,18 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
 def restart_game():
     global CURRENT_DIFFICULTY
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
-    player = Player(6400, FLOOR_LEVEL, 50, 50, lives)
-    
+    player = Player(500, FLOOR_LEVEL, 50, 50, lives)
+    for obj in objects:
+        if isinstance(obj, PowerUpBlock):
+            obj.reset()
+            
     speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
-        Goomba(1000, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 450),  
-        Goomba(1750, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 400),  
-        Boo(2500, 350, 45, 45, int(3 * speed_mult), 200, 120),  
-        Boo(3200, 350, 45, 45, int(3 * speed_mult), 200, 120),  
-        Goomba(4000, FLOOR_LEVEL, 45, 45, int(3 * speed_mult), 400),  
+        Goomba(1000, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 450),
+        Goomba(1750, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 400),
+        Boo(2600, FLOOR_LEVEL-60, 45, 45, int(3 * speed_mult), 450),
+        Boo(3500, FLOOR_LEVEL-75, 45, 45, int(3 * speed_mult), 800),
+        Goomba(4000, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 400),
     ]
     return player, enemies
 
@@ -578,6 +853,12 @@ def initialize_level():
     obj_storage.add_object(Object(6208, FLOOR_LEVEL, 33, 344, "brown"))
     obj_storage.add_object(Object(6241, FLOOR_LEVEL, 33, 344, "brown"))
     obj_storage.add_object(Object(6538, FLOOR_LEVEL, 33, 43, "brown"))
+    obj_storage.add_object(PlatformObject(2100,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(PlatformObject(2132,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(PowerUpBlock(2164,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(PlatformObject(2196,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(PlatformObject(2228,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(PlatformObject(2260,FLOOR_LEVEL-150,32,32,"orange",True))
     return obj_storage.get_obj_list()
 
 
@@ -590,7 +871,10 @@ def main():
     end_time = 0
     selected_menu_option = 1  # Domyślnie SREDNI (indeks 1)
     
+    global player
     player = None
+    global enemies
+    global objects
     enemies = []
     objects = []
 
@@ -627,6 +911,8 @@ def main():
                 
                 # OBSŁUGA GRY
                 elif GAME_ACTIVE and GAME_STARTED:
+
+                    enemies = [enemy for enemy in enemies if not enemy.to_remove]
                    
                     if player and player.rect.x > 6680 and player.rect.x < 6870 and not GAME_FINISHED:
                         GAME_FINISHED = True
@@ -643,6 +929,8 @@ def main():
                         GAME_FINISHED = False
                         start_time = pygame.time.get_ticks()
                         end_time = 0
+                        player, enemies = restart_game()
+                        objects = initialize_level()
                     
                     if event.key == pygame.K_m and GAME_FINISHED:
                         GAME_ACTIVE = False

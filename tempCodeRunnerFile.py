@@ -1,1 +1,1 @@
-MENU
+enemies=restart_game()
