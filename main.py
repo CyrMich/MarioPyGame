@@ -47,6 +47,7 @@ DEATH_SOUND.set_volume(0.5)
 
 SPRITE_SHEET_MARIO = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
 SPRITE_SHEET_ENEMIES = pygame.image.load("resources\\graphics\\smb_enemies_sheet.png").convert_alpha()
+SPRITE_SHEET_OBJECTS = pygame.image.load("resources\\graphics\\item_objects.png").convert_alpha()
 SPRITE_SHEET_TILE_SET = pygame.image.load("resources\\graphics\\tile_set.png").convert_alpha()
 
 FLOOR_LEVEL = 536
