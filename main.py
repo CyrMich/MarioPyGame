@@ -96,7 +96,7 @@ def get_image_from_sheet(sprite_sheet, x, y, width, height, scale=1):
     return image
 
 class Player(pygame.sprite.Sprite):
-    GRAVITY = 1.5  # DO USTALENIA
+    GRAVITY = 1.5
 
     SMALL_SPRITES = [
         get_image_from_sheet(SPRITE_SHEET_MARIO,178, 32, 12, 16, 2),  # MARIO STOI W MIEJSCU
@@ -121,8 +121,8 @@ class Player(pygame.sprite.Sprite):
         self.x_vel = 0
         self.y_vel = 0
         self.jump = False
-        self.size = "big"
-        self.sprites = self.BIG_SPRITES
+        self.size = "small"
+        self.sprites = self.SMALL_SPRITES
         self.direction = "right"
         self.animation_count = 0
         self.lives = lives
@@ -520,19 +520,47 @@ class PowerUp(Enemy):
         super().__init__(x, y, width, height)
         self.alive = True
         self.to_remove = False
+        self.x_vel = -2
     
     def apply_gravity(self):
         self.y_vel += self.GRAVITY
         if self.y_vel > 10:
             self.y_vel = 10
 
+        if self.rect.y > HEIGHT+50:
+            self.to_remove = True
+            self.alive = False
+
+        self.rect.y += self.y_vel
+
+    def move(self, objects):
+        self.rect.x += self.x_vel
+
+        for obj in objects:
+            if self.rect.colliderect(obj.rect):
+                if self.x_vel > 0:
+                    self.rect.right = obj.rect.left
+                elif self.x_vel < 0:
+                    self.rect.left = obj.rect.right
+                self.x_vel *= -1
+
     def update(self, player, objects):
         if not self.alive:
             return
+
+        for obj in objects:
+            if self.rect.colliderect(obj.rect):
+                if self.y_vel > 0:
+                    self.rect.bottom = obj.rect.top
+                    self.y_vel = 0
+
         if self.rect.colliderect(player.rect):
             player.to_big()
             self.alive = False
             self.to_remove = True
+
+        self.move(objects)
+        self.apply_gravity()
 
     def draw(self, scroll_x):
         if self.alive:
@@ -560,30 +588,65 @@ class Object(pygame.sprite.Sprite):
     def draw(self, scroll_x): 
         if not self.visible:
             return
+
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
         pygame.draw.rect(WINDOW, self.color, adjusted_rect)
 
 class PowerUpBlock(Object):
-    def __init__(self, x, y, width, height, color="green", visible=False,num_of_power_up=1):
+    SPRITES = [
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 384, 0, 16, 16, 2),  # Jasny
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 400, 0, 16, 16, 2),  # Ciemniejszy
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 416, 0, 16, 16, 2),  # Ciemny
+        get_image_from_sheet(SPRITE_SHEET_TILE_SET, 432, 0, 16, 16, 2),  # Zużyty
+    ]
+
+    def __init__(self, x, y, width, height, color="green", visible=False, num_of_power_up=1):
         super().__init__(x, y - height, width, height, color, visible)
-        self.num_of_power_up=num_of_power_up
+        self.num_of_power_up = num_of_power_up
         self.initial_num_of_power_up = num_of_power_up
 
+        # Animacja
+        self.animation_index = 0
+        self.animation_timer = 0
+        self.animation_speed = 18  # im mniejsza liczba, tym szybciej się animuje
+
     def spawn_power_up(self):
-        if (self.num_of_power_up>0):
+        if self.num_of_power_up > 0:
             enemies.append(PowerUp(self.rect.x, self.rect.y - self.rect.height))
-            self.num_of_power_up-=1
+            self.num_of_power_up -= 1
+
     def reset(self):
-        self.num_of_power_up = self.initial_num_of_power_up
-    def draw(self, scroll_x): 
+        pass
+        # self.num_of_power_up = self.initial_num_of_power_up
+        # self.animation_index = 0
+        # self.animation_timer = 0
+
+    def update_animation(self):
+        if self.num_of_power_up > 0:
+            self.animation_timer += 1
+            if self.animation_timer >= self.animation_speed:
+                self.animation_timer = 0
+                self.animation_index = (self.animation_index + 1) % 3  # tylko 3 klatki animacji
+
+    def draw(self, scroll_x):
         if not self.visible:
             return
+
+        self.update_animation()
+
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
-        sprite=get_image_from_sheet(SPRITE_SHEET_TILE_SET, 384, 0, 16, 16, 2)
-        sprite_surf=sprite.get_rect(topleft=(adjusted_rect.x,adjusted_rect.y))
-        WINDOW.blit(sprite,sprite_surf)
+
+        if self.num_of_power_up > 0:
+            sprite = self.SPRITES[self.animation_index]
+        else:
+            sprite = self.SPRITES[3]  # zużyty blok
+
+        WINDOW.blit(sprite, adjusted_rect)
+
+
+
 class PlatformObject(Object):
     def __init__(self, x, y, width, height, color="green", visible=False):
         super().__init__(x, y - height, width, height, color, visible)
@@ -591,6 +654,7 @@ class PlatformObject(Object):
     def draw(self, scroll_x): 
         if not self.visible:
             return
+
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
         platform_obj=get_image_from_sheet(SPRITE_SHEET_TILE_SET, 48, 0, 16, 16, 2)
@@ -799,7 +863,8 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
 def restart_game():
     global CURRENT_DIFFICULTY
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
-    player = Player(500, FLOOR_LEVEL, 50, 50, lives)
+    player = Player(2000, FLOOR_LEVEL, 50, 50, lives)
+
     for obj in objects:
         if isinstance(obj, PowerUpBlock):
             obj.reset()
