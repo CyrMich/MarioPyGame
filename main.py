@@ -45,6 +45,15 @@ GAME_OVER_SOUND.set_volume(0.5)
 DEATH_SOUND = pygame.mixer.Sound("resources\\music\\death.wav")
 DEATH_SOUND.set_volume(0.5)
 
+COIN_SOUND = pygame.mixer.Sound("resources\\sound\\coin.ogg")
+COIN_SOUND.set_volume(0.5)
+
+POWERUP_SOUND = pygame.mixer.Sound("resources\\sound\\powerup.ogg")
+POWERUP_SOUND.set_volume(0.5)
+
+POWERUP_APPEARS_SOUND = pygame.mixer.Sound("resources\\sound\\powerup_appears.ogg")
+POWERUP_APPEARS_SOUND.set_volume(0.5)
+
 SPRITE_SHEET_MARIO = pygame.image.load("resources\\graphics\\mario_bros.png").convert_alpha()
 SPRITE_SHEET_ENEMIES = pygame.image.load("resources\\graphics\\smb_enemies_sheet.png").convert_alpha()
 SPRITE_SHEET_OBJECTS = pygame.image.load("resources\\graphics\\item_objects.png").convert_alpha()
@@ -103,7 +112,8 @@ class Player(pygame.sprite.Sprite):
         get_image_from_sheet(SPRITE_SHEET_MARIO,80,  32, 15, 16, 2),  # MARIO CHÓD [1]
         get_image_from_sheet(SPRITE_SHEET_MARIO,96,  32, 16, 16, 2),  # MARIO CHÓD [2]
         get_image_from_sheet(SPRITE_SHEET_MARIO,112, 32, 16, 16, 2),  # MARIO CHÓD [3]
-        get_image_from_sheet(SPRITE_SHEET_MARIO,144, 32, 16, 16, 2)  # MARIO PODSKOK
+        get_image_from_sheet(SPRITE_SHEET_MARIO,144, 32, 16, 16, 2),  # MARIO PODSKOK
+        get_image_from_sheet(SPRITE_SHEET_MARIO,320, 8,  16, 24, 2)   # SMALL TO BIG
     ]
 
     BIG_SPRITES = [
@@ -111,7 +121,8 @@ class Player(pygame.sprite.Sprite):
         get_image_from_sheet(SPRITE_SHEET_MARIO,81, 0,16,32,2), # MARIO CHÓD [1]
         get_image_from_sheet(SPRITE_SHEET_MARIO,97, 0,15,32,2), # MARIO CHÓD [2]
         get_image_from_sheet(SPRITE_SHEET_MARIO,113,0,15,32,2), # MARIO CHÓD [3]
-        get_image_from_sheet(SPRITE_SHEET_MARIO,144,0,16,32,2) # MARIO PODSKOK
+        get_image_from_sheet(SPRITE_SHEET_MARIO,144,0,16,32,2), # MARIO PODSKOK
+        get_image_from_sheet(SPRITE_SHEET_MARIO,272,2,16,29,2)  # BIG TO SMALL
     ]
 
 
@@ -134,10 +145,12 @@ class Player(pygame.sprite.Sprite):
 
     def to_big(self):
         self.size = "big"
+        self.sprite = self.SMALL_SPRITES[5]
         self.sprites = self.BIG_SPRITES
 
     def to_small(self):
         self.size = "small"
+        self.sprite = self.BIG_SPRITES[5]
         self.sprites = self.SMALL_SPRITES
 
     def do_jump(self):
@@ -189,6 +202,7 @@ class Player(pygame.sprite.Sprite):
                 self.lives = self.max_lives
                 global enemies
                 self,enemies = restart_game()
+                reset_powerups(objects)
             else:
                 self.rect.x = 400
                 self.rect.y = 300
@@ -297,6 +311,7 @@ class Enemy(pygame.sprite.Sprite):
                     player.reset()
                     player.lives = player.max_lives
                     player,enemies=restart_game()
+                    reset_powerups(objects)
                 else:
                     player.rect.x -= 50
                     player.y_vel = -10
@@ -372,7 +387,7 @@ class Goomba(Enemy):
 
         self.apply_gravity()
         self.move_and_collide(objects)
-        reset_powerups(objects)
+
         # KOLIZJA Z GRACZEM
         if self.rect.colliderect(player.rect):
             if player.invincible:
@@ -400,6 +415,7 @@ class Goomba(Enemy):
                     player.reset()
                     player.lives = player.max_lives
                     player,enemies=restart_game()
+                    reset_powerups(objects)
                 else:
                     player.rect.x -= 50
                     player.y_vel = -10
@@ -443,7 +459,6 @@ class Boo(Enemy):
         if not self.alive:
             self.sprite = self.SPRITES[2]
             self.death_timer += 1
-            reset_powerups(objects)
             if self.death_timer >= self.death_duration:
                 self.to_remove = True
             return
@@ -457,10 +472,9 @@ class Boo(Enemy):
         if self.animation_count >= 10:
             self.animation_count = 0
 
-            # Lot w lewo
             if self.speed < 0:
                 self.sprite_index = 0 if self.sprite_index != 0 else 1
-            else:  # Lot w prawo
+            else:
                 self.sprite_index = 2 if self.sprite_index != 2 else 3
 
         self.sprite = self.SPRITES[self.sprite_index]
@@ -492,6 +506,7 @@ class Boo(Enemy):
                     global enemies
                     player.reset()
                     player,enemies=restart_game()
+                    reset_powerups(objects)
                     player.lives = player.max_lives
                 else:
                     player.rect.x -= 50
@@ -555,6 +570,7 @@ class PowerUp(Enemy):
                     self.y_vel = 0
 
         if self.rect.colliderect(player.rect):
+            POWERUP_SOUND.play()
             player.to_big()
             self.alive = False
             self.to_remove = True
@@ -573,10 +589,12 @@ class PowerUp(Enemy):
     def is_off_screen(self, scroll_x):
         return self.rect.right - scroll_x < 0
 
+
 def reset_powerups(objects):
     for obj in objects:
         if isinstance(obj, PowerUpBlock):
             obj.reset()
+
 
 class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, color="green", visible=False):
@@ -613,14 +631,14 @@ class PowerUpBlock(Object):
 
     def spawn_power_up(self):
         if self.num_of_power_up > 0:
+            POWERUP_APPEARS_SOUND.play()
             enemies.append(PowerUp(self.rect.x, self.rect.y - self.rect.height))
             self.num_of_power_up -= 1
 
     def reset(self):
-        pass
-        # self.num_of_power_up = self.initial_num_of_power_up
-        # self.animation_index = 0
-        # self.animation_timer = 0
+        self.num_of_power_up = self.initial_num_of_power_up
+        self.animation_index = 0
+        self.animation_timer = 0
 
     def update_animation(self):
         if self.num_of_power_up > 0:
@@ -645,9 +663,7 @@ class PowerUpBlock(Object):
 
         WINDOW.blit(sprite, adjusted_rect)
 
-
-
-class PlatformObject(Object):
+class Bricks(Object):
     def __init__(self, x, y, width, height, color="green", visible=False):
         super().__init__(x, y - height, width, height, color, visible)
 
@@ -657,7 +673,7 @@ class PlatformObject(Object):
 
         adjusted_rect = self.rect.copy()
         adjusted_rect.x -= scroll_x
-        platform_obj=get_image_from_sheet(SPRITE_SHEET_TILE_SET, 48, 0, 16, 16, 2)
+        platform_obj=get_image_from_sheet(SPRITE_SHEET_TILE_SET, 16, 0, 16, 16, 2)
         platform_obj_surf=platform_obj.get_rect(topleft=(adjusted_rect.x,adjusted_rect.y))
         WINDOW.blit(platform_obj,platform_obj_surf)
 
@@ -865,9 +881,6 @@ def restart_game():
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
     player = Player(2000, FLOOR_LEVEL, 50, 50, lives)
 
-    for obj in objects:
-        if isinstance(obj, PowerUpBlock):
-            obj.reset()
             
     speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
@@ -919,12 +932,12 @@ def initialize_level():
     obj_storage.add_object(Object(6208, FLOOR_LEVEL, 33, 344, "brown"))
     obj_storage.add_object(Object(6241, FLOOR_LEVEL, 33, 344, "brown"))
     obj_storage.add_object(Object(6538, FLOOR_LEVEL, 33, 43, "brown"))
-    obj_storage.add_object(PlatformObject(2100,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(PlatformObject(2132,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(Bricks(2100,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(Bricks(2132,FLOOR_LEVEL-150,32,32,"orange",True))
     obj_storage.add_object(PowerUpBlock(2164,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(PlatformObject(2196,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(PlatformObject(2228,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(PlatformObject(2260,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(Bricks(2196,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(Bricks(2228,FLOOR_LEVEL-150,32,32,"orange",True))
+    obj_storage.add_object(Bricks(2260,FLOOR_LEVEL-150,32,32,"orange",True))
     return obj_storage.get_obj_list()
 
 
@@ -972,6 +985,7 @@ def main():
                             GAME_STARTED = True
                             player, enemies = restart_game()
                             objects = initialize_level()
+                            reset_powerups(objects)
                             start_time = pygame.time.get_ticks()
                             end_time = 0
                 
@@ -997,6 +1011,7 @@ def main():
                         end_time = 0
                         player, enemies = restart_game()
                         objects = initialize_level()
+                        reset_powerups(objects)
                     
                     if event.key == pygame.K_m and GAME_FINISHED:
                         GAME_ACTIVE = False
