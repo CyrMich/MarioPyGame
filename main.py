@@ -909,7 +909,7 @@ def draw_pause_screen():
 def draw_end_screen(player, start_time, end_time):
     pygame.mixer.music.stop()
     WORLD_CLEAR.play()
-    
+
     overlay = pygame.Surface((WIDTH, HEIGHT))
     overlay.set_alpha(220)
     overlay.fill((0, 0, 0))
@@ -1004,7 +1004,7 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
 def restart_game():
     global CURRENT_DIFFICULTY
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
-    player = Player(6500, FLOOR_LEVEL, 50, 50, lives)
+    player = Player(100, FLOOR_LEVEL, 50, 50, lives)
 
             
     speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
