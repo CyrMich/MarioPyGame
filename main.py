@@ -23,8 +23,8 @@ pygame.mixer.music.play(-1)
 pygame.mixer.music.set_volume(0.5)
 
 # KOD DO ODTWARZANIA DZWIEKOW | DO USUNIECIA PRZED ODDANIEM
-# pygame.mixer.music.load("resources\\sound\\small_jump.ogg")
-# pygame.mixer.music.play(-1)
+# pygame.mixer.music.load("resources\\music\\world_clear.wav")
+# pygame.mixer.music.play(1)
 # pygame.mixer.music.set_volume(0.5)
 
 WORLD_CLEAR = pygame.mixer.Sound("resources\\music\\world_clear.wav")
@@ -38,6 +38,9 @@ SMALL_JUMP_SOUND.set_volume(0.5)
 
 BIG_JUMP_SOUND = pygame.mixer.Sound("resources\\sound\\big_jump.ogg")
 BIG_JUMP_SOUND.set_volume(0.5)
+
+PIPE_SOUND = pygame.mixer.Sound("resources\\sound\\pipe.ogg")
+PIPE_SOUND.set_volume(0.5)
 
 GAME_OVER_SOUND = pygame.mixer.Sound("resources\\music\\game_over.ogg")
 GAME_OVER_SOUND.set_volume(0.5)
@@ -150,6 +153,7 @@ class Player(pygame.sprite.Sprite):
         self.sprites = self.BIG_SPRITES
 
     def to_small(self):
+        PIPE_SOUND.play()
         self.size = "small"
         self.sprite = self.BIG_SPRITES[5]
         self.sprites = self.SMALL_SPRITES
@@ -595,6 +599,7 @@ class PowerUp(Enemy):
         if self.rect.colliderect(player.rect):
             POWERUP_SOUND.play()
             player.to_big()
+            player.score += 100
             self.alive = False
             self.to_remove = True
 
@@ -902,6 +907,9 @@ def draw_pause_screen():
 
 
 def draw_end_screen(player, start_time, end_time):
+    pygame.mixer.music.stop()
+    WORLD_CLEAR.play()
+    
     overlay = pygame.Surface((WIDTH, HEIGHT))
     overlay.set_alpha(220)
     overlay.fill((0, 0, 0))
@@ -996,16 +1004,19 @@ def draw(player, objects, enemies, paused=False, finished=False, start_time=0, e
 def restart_game():
     global CURRENT_DIFFICULTY
     lives = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["player_lives"]
-    player = Player(2000, FLOOR_LEVEL, 50, 50, lives)
+    player = Player(6500, FLOOR_LEVEL, 50, 50, lives)
 
             
     speed_mult = DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
+        Goomba(700, FLOOR_LEVEL + 12, 45, 45, int(3 * speed_mult)+1, 750),
         Goomba(1000, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 450),
         Goomba(1750, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 400),
         Boo(2600, FLOOR_LEVEL-60, 45, 45, int(3 * speed_mult), 450),
         Boo(3500, FLOOR_LEVEL-75, 45, 45, int(3 * speed_mult), 800),
-        Goomba(4000, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 400),
+        Goomba(3870, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult)+1, 360),
+        Goomba(4200, FLOOR_LEVEL+12, 45, 45, int(3 * speed_mult), 360),
+        Boo(5700, FLOOR_LEVEL - 50, 45, 45, int(3 * speed_mult), 500)
     ]
     return player, enemies
 
@@ -1049,12 +1060,47 @@ def initialize_level():
     obj_storage.add_object(Object(6208, FLOOR_LEVEL, 33, 344, "brown"))
     obj_storage.add_object(Object(6241, FLOOR_LEVEL, 33, 344, "brown"))
     obj_storage.add_object(Object(6538, FLOOR_LEVEL, 33, 43, "brown"))
-    obj_storage.add_object(Bricks(2100,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(Bricks(2132,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(PowerUpBlock(2164,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(Bricks(2196,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(Bricks(2228,FLOOR_LEVEL-150,32,32,"orange",True))
-    obj_storage.add_object(CoinBlock(2260,FLOOR_LEVEL-150,32,32,"orange",True))
+
+    obj_storage.add_object(CoinBlock(400, FLOOR_LEVEL - 100, 32, 32, "orange", True))
+    obj_storage.add_object(Bricks(500,FLOOR_LEVEL-100,32,32,"orange",True))
+    obj_storage.add_object(PowerUpBlock(532,FLOOR_LEVEL-100,32,32,"orange",True))
+    obj_storage.add_object(Bricks(564,FLOOR_LEVEL-100,32,32,"orange",True))
+    obj_storage.add_object(CoinBlock(596,FLOOR_LEVEL-100,32,32,"orange",True))
+    obj_storage.add_object(Bricks(628,FLOOR_LEVEL-100,32,32,"orange",True))
+    obj_storage.add_object(CoinBlock(564,FLOOR_LEVEL-250,32,32,"orange",True))
+
+    obj_storage.add_object(CoinBlock(1720, FLOOR_LEVEL - 125, 32, 32, "orange", True))
+
+    obj_storage.add_object(Bricks(2632,FLOOR_LEVEL-100,32,32,"orange",True))
+    obj_storage.add_object(CoinBlock(2664,FLOOR_LEVEL-100,32,32,"orange",True))
+    obj_storage.add_object(Bricks(2696,FLOOR_LEVEL-100,32,32,"orange",True))
+
+    obj_storage.add_object(Bricks(2728,FLOOR_LEVEL-250,32,32,"orange",True))
+    obj_storage.add_object(Bricks(2760,FLOOR_LEVEL-250,32,32,"orange",True))
+    obj_storage.add_object(Bricks(2792,FLOOR_LEVEL-250,32,32,"orange",True))
+    obj_storage.add_object(Bricks(2824, FLOOR_LEVEL-250, 32, 32, "orange", True))
+
+    obj_storage.add_object(Bricks(2920, FLOOR_LEVEL-250, 32, 32, "orange", True))
+    obj_storage.add_object(Bricks(2952, FLOOR_LEVEL-250, 32, 32, "orange", True))
+    obj_storage.add_object(Bricks(2984, FLOOR_LEVEL-250, 32, 32, "orange", True))
+    obj_storage.add_object(CoinBlock(3016, FLOOR_LEVEL-250, 32, 32, "orange", True))
+    obj_storage.add_object(Bricks(3016, FLOOR_LEVEL-100, 32, 32, "orange", True))
+
+    obj_storage.add_object(Bricks(3300, FLOOR_LEVEL-100, 32, 32, "orange", True))
+    obj_storage.add_object(Bricks(3332, FLOOR_LEVEL-100, 32, 32, "orange", True))
+    obj_storage.add_object(PowerUpBlock(3500, FLOOR_LEVEL-100, 32, 32, "orange", True))
+
+    obj_storage.add_object(CoinBlock(3900, FLOOR_LEVEL-100, 32, 32, "orange", True))
+    obj_storage.add_object(CoinBlock(4000, FLOOR_LEVEL-100, 32, 32, "orange", True))
+    obj_storage.add_object(CoinBlock(4000, FLOOR_LEVEL-250, 32, 32, "orange", True))
+    obj_storage.add_object(CoinBlock(4100, FLOOR_LEVEL-100, 32, 32, "orange", True))
+
+    obj_storage.add_object(CoinBlock(5600, FLOOR_LEVEL - 100, 32, 32, "orange", True))
+    obj_storage.add_object(Bricks(5632, FLOOR_LEVEL-100, 32, 32, "orange", True))
+    obj_storage.add_object(CoinBlock(5664, FLOOR_LEVEL-100, 32, 32, "orange", True))
+    obj_storage.add_object(Bricks(5696, FLOOR_LEVEL-100, 32, 32, "orange", True))
+    obj_storage.add_object(CoinBlock(5728, FLOOR_LEVEL - 100, 32, 32, "orange", True))
+
     return obj_storage.get_obj_list()
 
 
