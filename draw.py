@@ -113,6 +113,28 @@ def draw_end_screen(player, start_time, end_time):
     mario_rect = mario_end.get_rect(midbottom=(620, HEIGHT + 15))
     WINDOW.blit(mario_end, mario_rect)
 
+def draw_game_lost():
+    pygame.mixer.music.stop()
+
+    overlay = pygame.Surface((WIDTH, HEIGHT))
+    overlay.set_alpha(220)
+    overlay.fill((0, 0, 0))
+    WINDOW.blit(overlay, (0, 0))
+
+    game_over_text = FONT.render("GAME OVER", True, "red")
+    game_over_rect = game_over_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 100))
+    WINDOW.blit(game_over_text, game_over_rect)
+
+    difficulty_text = FONT.render(f"Poziom: {CURRENT_DIFFICULTY}", True, "white")
+    difficulty_rect = difficulty_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 60))
+    WINDOW.blit(difficulty_text, difficulty_rect)
+
+    instruction1 = FONT.render("R - Spróbuj ponownie", True, "white")
+    instruction1_rect = instruction1.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
+    WINDOW.blit(instruction1, instruction1_rect)
+
+    mario_dead = pygame.image.load("resources\\graphics\\marioKnocked.png").convert_alpha()
+    mario_rect = mario_dead.get_rect(midbottom=(WIDTH // 2, HEIGHT - 50))
 
 def draw(player, objects, coins, enemies, paused=False, finished=False, start_time=0, end_time=0):
     scroll_x = player.rect.x - WIDTH // 2
