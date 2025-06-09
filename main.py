@@ -7,9 +7,6 @@ from collision import handle_horizontal_collision, handle_vertical_collision
 from draw import draw, draw_main_menu
 
 
-
-
-
 def main():
     global GAME_PAUSED, GAME_FINISHED, GAME_ACTIVE, GAME_STARTED, CURRENT_DIFFICULTY
     
