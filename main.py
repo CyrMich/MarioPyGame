@@ -23,7 +23,7 @@ pygame.mixer.music.play(-1)
 pygame.mixer.music.set_volume(0.5)
 
 # KOD DO ODTWARZANIA DZWIEKOW | DO USUNIECIA PRZED ODDANIEM
-# pygame.mixer.music.load("resources\\music\\world_clear.wav")
+# pygame.mixer.music.load("resources\\sound\\stomp.ogg")
 # pygame.mixer.music.play(1)
 # pygame.mixer.music.set_volume(0.5)
 
@@ -41,6 +41,9 @@ BIG_JUMP_SOUND.set_volume(0.5)
 
 PIPE_SOUND = pygame.mixer.Sound("resources\\sound\\pipe.ogg")
 PIPE_SOUND.set_volume(0.5)
+
+HIT_SOUND = pygame.mixer.Sound("resources\\sound\\stomp.ogg")
+HIT_SOUND.set_volume(0.5)
 
 GAME_OVER_SOUND = pygame.mixer.Sound("resources\\music\\game_over.ogg")
 GAME_OVER_SOUND.set_volume(0.5)
@@ -410,6 +413,7 @@ class Goomba(Enemy):
                 player.invincibility_timer = pygame.time.get_ticks()
 
             else:
+                HIT_SOUND.play()
                 player.lives -= 1
                 player.invincible = True
                 player.invincibility_timer = pygame.time.get_ticks()
@@ -502,6 +506,7 @@ class Boo(Enemy):
                 player.invincibility_timer = pygame.time.get_ticks()
 
             else:
+                HIT_SOUND.play()
                 player.lives -= 1
                 player.invincible = True
                 player.invincibility_timer = pygame.time.get_ticks()
