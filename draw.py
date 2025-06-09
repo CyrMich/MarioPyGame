@@ -134,7 +134,7 @@ def draw_game_lost():
     WINDOW.blit(instruction1, instruction1_rect)
 
     mario_dead = pygame.image.load("resources\\graphics\\marioKnocked.png").convert_alpha()
-    mario_rect = mario_dead.get_rect(midbottom=(WIDTH // 2, 600))
+    mario_rect = mario_dead.get_rect(midbottom=(WIDTH // 2, 450))
     WINDOW.blit(mario_dead,mario_rect)
 
 def draw(player, objects, coins, enemies, paused=False, finished=False, start_time=0, end_time=0):
