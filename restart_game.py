@@ -4,10 +4,8 @@ from constants import DIFFICULTY_SETTINGS, FLOOR_LEVEL, CURRENT_DIFFICULTY
 import constants
 
 def restart_game():
-    print(f"CD {CURRENT_DIFFICULTY} ")
     lives = DIFFICULTY_SETTINGS[constants.CURRENT_DIFFICULTY]["player_lives"]
     player = Player(400, FLOOR_LEVEL, 50, 50, lives)
-    print(f"Życia {lives}")
     speed_mult = DIFFICULTY_SETTINGS[constants.CURRENT_DIFFICULTY]["enemy_speed_multiplier"]
     enemies = [
         Goomba(700, FLOOR_LEVEL + 12, 45, 45, int(3 * speed_mult) + 1, 750),
