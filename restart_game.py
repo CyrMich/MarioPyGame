@@ -5,6 +5,9 @@ import constants
 import pygame
 
 def restart_game():
+    pygame.mixer.music.load("resources\\music\\main_theme.ogg")
+    pygame.mixer.music.play(-1)
+    pygame.mixer.music.set_volume(0.5)
     constants.START_TIME = pygame.time.get_ticks()
     lives = DIFFICULTY_SETTINGS[constants.CURRENT_DIFFICULTY]["player_lives"]
     player = Player(100, FLOOR_LEVEL, 50, 50, lives)

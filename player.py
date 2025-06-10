@@ -99,7 +99,7 @@ class Player(pygame.sprite.Sprite):
             if self.lives <= 0:
                 self.reset()
             else:
-                self.rect.x = 400
+                self.rect.x = 100
                 self.rect.y = 300
                 self.y_vel = 0
                 self.jump = False
