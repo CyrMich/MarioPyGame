@@ -9,7 +9,7 @@ def draw_main_menu(selected_option):
     title_rect = title_text.get_rect(center=(WIDTH // 2, 30))
     WINDOW.blit(title_text, title_rect)
 
-    mario_start = pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioStart.png").convert_alpha()
+    mario_start = pygame.image.load("resources\\graphics\\marioStart.png").convert_alpha()
     mario_rect = mario_start.get_rect(center=(WIDTH // 2, 140))
     WINDOW.blit(mario_start, mario_rect)
 
@@ -114,7 +114,7 @@ def draw_end_screen(player, start_time, end_time):
     instruction3_rect = instruction3.get_rect(topleft=(40, HEIGHT // 2 + 160))
     WINDOW.blit(instruction3, instruction3_rect)
 
-    mario_end = pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioEnd.png").convert_alpha()
+    mario_end = pygame.image.load("resources\\graphics\\marioEnd.png").convert_alpha()
     mario_rect = mario_end.get_rect(midbottom=(600, HEIGHT + 15))
     WINDOW.blit(mario_end, mario_rect)
 
@@ -146,7 +146,7 @@ def draw(player, objects, coins, enemies, paused=False, finished=False, start_ti
     difficulty_display = FONT.render(f"Poziom: {constants.CURRENT_DIFFICULTY}", True, "white")
     WINDOW.blit(difficulty_display, (10, 70))
 
-    live_img = pygame.image.load("D:\\projektPython\\MarioPyGame\\resources\\graphics\\marioLive.png")
+    live_img = pygame.image.load("resources\\graphics\\marioLive.png")
     lives = []
     for i in range(player.lives):
         lives.append(live_img.get_rect(center=(750 - i * 50, 50)))
