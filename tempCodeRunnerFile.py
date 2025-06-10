@@ -1,1 +1,1 @@
-enemies=restart_game()
+constants.CURRENT_DIFFICULTY

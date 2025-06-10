@@ -1,10 +1,12 @@
 import pygame
-from constants import FPS, WIDTH, HEIGHT, BACKGROUND, GAME_ACTIVE, GAME_PAUSED, GAME_STARTED, GAME_FINISHED, CURRENT_DIFFICULTY, DIFFICULTY_SETTINGS
+from constants import FPS, WIDTH, HEIGHT, BACKGROUND, GAME_ACTIVE, GAME_PAUSED, GAME_STARTED, GAME_FINISHED, CURRENT_DIFFICULTY
 from tools import initialize_level, handle_move
 from restart_game import restart_game
 from restart_powerups import reset_powerups
 from collision import handle_horizontal_collision, handle_vertical_collision
 from draw import draw, draw_main_menu
+import constants
+import save
 
 
 def main():
@@ -46,8 +48,8 @@ def main():
                             run = False
                         else:
                             difficulty_names = ["ŁATWY", "ŚREDNI", "TRUDNY"]
-                            CURRENT_DIFFICULTY = difficulty_names[selected_menu_option]
                             
+                            constants.CURRENT_DIFFICULTY = difficulty_names[selected_menu_option]
                            
                             GAME_ACTIVE = True
                             GAME_STARTED = True
@@ -87,6 +89,9 @@ def main():
                         GAME_FINISHED = False
                         GAME_PAUSED = False
                         selected_menu_option = 1  
+                    
+                    if event.key == pygame.K_z and GAME_FINISHED:
+                        save.save_score(player,start_time,end_time)
 
                     if (event.key == pygame.K_w or event.key == pygame.K_SPACE) and player and not player.jump and not GAME_PAUSED and not GAME_FINISHED:
                         player.do_jump()
