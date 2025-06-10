@@ -117,6 +117,7 @@ class Player(pygame.sprite.Sprite):
         self.jump = False
         self.lives = self.max_lives
         constants.START_TIME = pygame.time.get_ticks()
+        self.score=0
 
     def update_sprite(self):
         # ANIMACJA SKOKU
