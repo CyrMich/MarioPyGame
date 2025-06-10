@@ -77,7 +77,6 @@ def main():
                         GAME_PAUSED = False
                         GAME_FINISHED = False
                         start_time = pygame.time.get_ticks()
-                        constants.START_TIME = pygame.time.get_ticks()
                         end_time = 0
                         player, enemies = restart_game()
                         objects = initialize_level()

@@ -1,1 +1,1 @@
-start_time
+CURRENT_DIFFICULTY

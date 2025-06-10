@@ -1,6 +1,7 @@
 import pygame
 from utils import get_image_from_sheet
 from constants import SPRITE_SHEET_MARIO, SMALL_JUMP_SOUND, BIG_JUMP_SOUND, PIPE_SOUND, HEIGHT, WINDOW
+import constants
 class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5
 
@@ -115,6 +116,7 @@ class Player(pygame.sprite.Sprite):
         self.y_vel = 0
         self.jump = False
         self.lives = self.max_lives
+        constants.START_TIME = pygame.time.get_ticks()
 
     def update_sprite(self):
         # ANIMACJA SKOKU
