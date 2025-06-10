@@ -1,10 +1,6 @@
 import pygame
-<<<<<<< HEAD
-from constants import WINDOW, WIDTH, HEIGHT, FONT, WORLD_CLEAR, DIFFICULTY_SETTINGS, CURRENT_DIFFICULTY, BACKGROUND, FINAL_SCORE, TIME_BONUS
-import constants
-=======
 from constants import WINDOW, WIDTH, HEIGHT, FONT, WORLD_CLEAR, DIFFICULTY_SETTINGS, CURRENT_DIFFICULTY, BACKGROUND
->>>>>>> 07b34af0c73bdce8eb75f01b88c85ef69b4480db
+import constants
 
 def draw_main_menu(selected_option):
     WINDOW.fill((30, 30, 80))
@@ -70,7 +66,6 @@ def draw_pause_screen():
 
 
 def draw_end_screen(player, start_time, end_time):
-    global FINAL_SCORE
     pygame.mixer.music.stop()
     WORLD_CLEAR.play()
 
@@ -79,13 +74,8 @@ def draw_end_screen(player, start_time, end_time):
     overlay.fill((0, 0, 0))
     WINDOW.blit(overlay, (0, 0))
 
-<<<<<<< HEAD
-    constants.TIME_BONUS= max(0, int(50 - (end_time - start_time) / 1000))
-    constants.FINAL_SCORE = int((player.score * 5 + player.lives * 10 + constants.TIME_BONUS) * DIFFICULTY_SETTINGS[constants.CURRENT_DIFFICULTY][
-=======
-    time_bonus = max(0, int(50 - (end_time - start_time) / 1000))
-    final_score = int((player.score * 5 + player.lives * 10 + time_bonus) * DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY][
->>>>>>> 07b34af0c73bdce8eb75f01b88c85ef69b4480db
+    constants.TIME_BONUS = max(0, int(50 - (end_time - start_time) / 1000))
+    constants.FINAL_SCORE = int((player.score * 5 + player.lives * 10 + constants.TIME_BONUS) * DIFFICULTY_SETTINGS[CURRENT_DIFFICULTY][
         "score_multiplier"])
 
     congrats_text = FONT.render("GRATULACJE!", True, "yellow")
@@ -104,21 +94,12 @@ def draw_end_screen(player, start_time, end_time):
     lives_rect = lives_text.get_rect(topleft=(40, HEIGHT // 2 - 10))
     WINDOW.blit(lives_text, lives_rect)
 
-<<<<<<< HEAD
     time_text = FONT.render(f"Bonus za czas: {constants.TIME_BONUS}", True, "white")
-    time_rect = time_text.get_rect(topleft=(40, HEIGHT // 2 - 80))
-    WINDOW.blit(time_text, time_rect)
-
-    final_text = FONT.render(f"Wynik: {constants.FINAL_SCORE}", True, "gold")
-    final_rect = final_text.get_rect(topleft=(40, HEIGHT // 2 - 50))
-=======
-    time_text = FONT.render(f"Bonus za czas: {time_bonus}", True, "white")
     time_rect = time_text.get_rect(topleft=(40, HEIGHT // 2 + 20))
     WINDOW.blit(time_text, time_rect)
 
-    final_text = FONT.render(f"Wynik: {final_score}", True, "gold")
+    final_text = FONT.render(f"Wynik: {constants.FINAL_SCORE}", True, "gold")
     final_rect = final_text.get_rect(topleft=(40, HEIGHT // 2 + 60))
->>>>>>> 07b34af0c73bdce8eb75f01b88c85ef69b4480db
     WINDOW.blit(final_text, final_rect)
 
     instruction1 = FONT.render("R - Restart gry", True, "white")
@@ -134,11 +115,7 @@ def draw_end_screen(player, start_time, end_time):
     WINDOW.blit(mario_end, mario_rect)
 
 
-<<<<<<< HEAD
-def draw(player, objects, coins, enemies, paused=False, finished=False,lost=False, start_time=0, end_time=0):
-=======
 def draw(player, objects, coins, enemies, paused=False, finished=False, start_time=0, end_time=0):
->>>>>>> 07b34af0c73bdce8eb75f01b88c85ef69b4480db
     scroll_x = player.rect.x - WIDTH // 2
     scroll_x = max(0, min(scroll_x, BACKGROUND.get_width() - WIDTH))
 
@@ -155,7 +132,7 @@ def draw(player, objects, coins, enemies, paused=False, finished=False, start_ti
 
     player.draw(scroll_x)
 
-    text = FONT.render(f"Czas: {int((pygame.time.get_ticks()-constants.START_TIME)/1000)}", True, "white")
+    text = FONT.render(f"{player.rect.x, player.rect.y}", True, "white")
     WINDOW.blit(text, (10, 10))
 
     score_display = FONT.render(f"Wynik: {player.score}", True, "white")
