@@ -1,5 +1,5 @@
 import pygame
-from constants import WINDOW, WIDTH, HEIGHT, FONT, WORLD_CLEAR, DIFFICULTY_SETTINGS, CURRENT_DIFFICULTY, BACKGROUND
+from constants import WINDOW, WIDTH, HEIGHT, FONT, WORLD_CLEAR, DIFFICULTY_SETTINGS, CURRENT_DIFFICULTY, BACKGROUND, FINAL_SCORE, TIME_BONUS
 import constants
 
 def draw_main_menu(selected_option):
@@ -66,6 +66,7 @@ def draw_pause_screen():
 
 
 def draw_end_screen(player, start_time, end_time):
+    global FINAL_SCORE
     pygame.mixer.music.stop()
     WORLD_CLEAR.play()
 
@@ -74,8 +75,8 @@ def draw_end_screen(player, start_time, end_time):
     overlay.fill((0, 0, 0))
     WINDOW.blit(overlay, (0, 0))
 
-    time_bonus = max(0, int(50 - (end_time - start_time) / 1000))
-    final_score = int((player.score * 5 + player.lives * 10 + time_bonus) * DIFFICULTY_SETTINGS[constants.CURRENT_DIFFICULTY][
+    constants.TIME_BONUS= max(0, int(50 - (end_time - start_time) / 1000))
+    constants.FINAL_SCORE = int((player.score * 5 + player.lives * 10 + constants.TIME_BONUS) * DIFFICULTY_SETTINGS[constants.CURRENT_DIFFICULTY][
         "score_multiplier"])
 
     congrats_text = FONT.render("GRATULACJE!", True, "yellow")
@@ -94,11 +95,11 @@ def draw_end_screen(player, start_time, end_time):
     lives_rect = lives_text.get_rect(topleft=(40, HEIGHT // 2 - 110))
     WINDOW.blit(lives_text, lives_rect)
 
-    time_text = FONT.render(f"Bonus za czas: {time_bonus}", True, "white")
+    time_text = FONT.render(f"Bonus za czas: {constants.TIME_BONUS}", True, "white")
     time_rect = time_text.get_rect(topleft=(40, HEIGHT // 2 - 80))
     WINDOW.blit(time_text, time_rect)
 
-    final_text = FONT.render(f"Wynik: {final_score}", True, "gold")
+    final_text = FONT.render(f"Wynik: {constants.FINAL_SCORE}", True, "gold")
     final_rect = final_text.get_rect(topleft=(40, HEIGHT // 2 - 50))
     WINDOW.blit(final_text, final_rect)
 
@@ -118,31 +119,8 @@ def draw_end_screen(player, start_time, end_time):
     mario_rect = mario_end.get_rect(midbottom=(600, HEIGHT + 15))
     WINDOW.blit(mario_end, mario_rect)
 
-def draw_game_lost():
-    pygame.mixer.music.stop()
 
-    overlay = pygame.Surface((WIDTH, HEIGHT))
-    overlay.set_alpha(220)
-    overlay.fill((0, 0, 0))
-    WINDOW.blit(overlay, (0, 0))
-
-    game_over_text = FONT.render("GAME OVER", True, "red")
-    game_over_rect = game_over_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 100))
-    WINDOW.blit(game_over_text, game_over_rect)
-
-    difficulty_text = FONT.render(f"Poziom: {constants.CURRENT_DIFFICULTY}", True, "white")
-    difficulty_rect = difficulty_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 60))
-    WINDOW.blit(difficulty_text, difficulty_rect)
-
-    instruction1 = FONT.render("R - Spróbuj ponownie", True, "white")
-    instruction1_rect = instruction1.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 40))
-    WINDOW.blit(instruction1, instruction1_rect)
-
-    mario_dead = pygame.image.load("resources\\graphics\\marioKnocked.png").convert_alpha()
-    mario_rect = mario_dead.get_rect(midbottom=(WIDTH // 2, 450))
-    WINDOW.blit(mario_dead,mario_rect)
-
-def draw(player, objects, coins, enemies, paused=False, finished=False, start_time=0, end_time=0):
+def draw(player, objects, coins, enemies, paused=False, finished=False,lost=False, start_time=0, end_time=0):
     scroll_x = player.rect.x - WIDTH // 2
     scroll_x = max(0, min(scroll_x, BACKGROUND.get_width() - WIDTH))
 
@@ -159,7 +137,7 @@ def draw(player, objects, coins, enemies, paused=False, finished=False, start_ti
 
     player.draw(scroll_x)
 
-    text = FONT.render(f"{player.rect.x, player.rect.y}", True, "white")
+    text = FONT.render(f"Czas: {int((pygame.time.get_ticks()-constants.START_TIME)/1000)}", True, "white")
     WINDOW.blit(text, (10, 10))
 
     score_display = FONT.render(f"Wynik: {player.score}", True, "white")

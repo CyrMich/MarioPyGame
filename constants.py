@@ -74,6 +74,9 @@ GAME_ACTIVE = False  # Zmienione na False - gra zaczyna się od menu
 GAME_PAUSED = False
 GAME_FINISHED = False
 GAME_STARTED = False  # Nowa zmienna do śledzenia czy gra została rozpoczęta
+FINAL_SCORE = 0
+TIME_BONUS = 0
+START_TIME = 0
 TIME = 100
 
 # Poziomy trudności

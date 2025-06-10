@@ -22,4 +22,3 @@ def handle_vertical_collision(player, objects, enemies, coins):
                     obj.spawn_power_up(enemies)
                 if isinstance(obj, CoinBlock):
                     obj.spawn_coin(player,coins)
-                # obj.visible = True

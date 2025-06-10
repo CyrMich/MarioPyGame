@@ -1,7 +1,6 @@
 import pygame
 from utils import get_image_from_sheet
 from constants import SPRITE_SHEET_MARIO, SMALL_JUMP_SOUND, BIG_JUMP_SOUND, PIPE_SOUND, HEIGHT, WINDOW
-
 class Player(pygame.sprite.Sprite):
     GRAVITY = 1.5
 

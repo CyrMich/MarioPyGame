@@ -58,7 +58,6 @@ def main():
                             reset_powerups(objects)
                             start_time = pygame.time.get_ticks()
                             end_time = 0
-                
                 # OBSŁUGA GRY
                 elif GAME_ACTIVE and GAME_STARTED:
 
@@ -78,6 +77,7 @@ def main():
                         GAME_PAUSED = False
                         GAME_FINISHED = False
                         start_time = pygame.time.get_ticks()
+                        constants.START_TIME = pygame.time.get_ticks()
                         end_time = 0
                         player, enemies = restart_game()
                         objects = initialize_level()
@@ -100,7 +100,6 @@ def main():
         if not GAME_ACTIVE and not GAME_STARTED:
             draw_main_menu(selected_menu_option)
             continue
-
         # AKTUALIZACJA GRY
         if GAME_ACTIVE and GAME_STARTED and player:
             if not GAME_PAUSED and not GAME_FINISHED:
