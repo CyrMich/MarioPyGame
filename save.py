@@ -9,7 +9,7 @@ def save_score(player, start_time, end_time):
     teraz = datetime.datetime.now()
     data_czas = teraz.strftime("%Y-%m-%d_%H-%M-%S")
 
-    nazwa_pliku = f"{data_czas}_mario_{constants.CURRENT_DIFFICULTY}.txt"
+    nazwa_pliku = f"mario_{constants.CURRENT_DIFFICULTY}_{data_czas}.txt"
     if constants.CURRENT_DIFFICULTY=="ŚREDNI": difficulty="SREDNI"
     elif constants.CURRENT_DIFFICULTY=="ŁATWY": difficulty="LATWY"
     else: difficulty="TRUDNY"
